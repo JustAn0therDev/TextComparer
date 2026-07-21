@@ -1,0 +1,9 @@
+using System;
+
+public class Program
+{
+	public static void Main()
+	{
+		Console.WriteLine("This message should say 'Hello World' but it doesn't. Don't think too much of it.");
+	}
+}
