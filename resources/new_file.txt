@@ -10,6 +10,7 @@ public class Program
 	public static void Main()
 	{
 		Console.WriteLine(Things());
+		// This comment should take a lot of space, making the renderer manage the size of the line and render it in separate lines.
 	}
 	
 	public static int Things()

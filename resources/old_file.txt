@@ -5,5 +5,6 @@ public class Program
 	public static void Main()
 	{
 		Console.WriteLine("This message should say 'Hello World' but it doesn't. Don't think too much of it.");
+		// This comment will also have been deleted in the new file!
 	}
 }

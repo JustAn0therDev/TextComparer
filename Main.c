@@ -9,6 +9,11 @@ typedef struct list {
 	size_t size;
 } List;
 
+typedef struct number_list {
+	size_t* list;
+	size_t size;
+} NumberList;
+
 typedef struct content_files {
 	List oldFileLinesList;
 	List newFileLinesList;
@@ -20,6 +25,7 @@ typedef struct content_files {
 #define MARGIN_X 5
 #define MARGIN_Y 5
 #define PADDING_FROM_LINE_NUMBER MARGIN_X * 6
+#define FITS_UP_TO_CHARS (WIDTH / 2) - (MARGIN_Y * 2) - PADDING_FROM_LINE_NUMBER
 
 #define LINE_DELIMETER '\n'
 
@@ -173,9 +179,11 @@ static int contains(int* list, size_t size, int item)
 	return 0;
 }
 
-static void addToSeenLines(int* seenLines, size_t* seenLinesSize, int line)
+static void addToSeenLines(NumberList* numberList, int line)
 {
-	seenLines[(*seenLinesSize)++] = line;
+	numberList->list[numberList->size - 1] = line;
+	size_t* reallocated = realloc(numberList->list, sizeof(size_t) * ++numberList->size);
+	numberList->list = reallocated;
 }
 
 static int lineDoesNotExistInFile(const List* fileLines, const char** lineToFind)
@@ -190,13 +198,13 @@ static int lineDoesNotExistInFile(const List* fileLines, const char** lineToFind
 	return 1;
 }
 
-static int lineDoesNotExistInFileAndHasNotBeenSeen(const List* fileLines, const char** lineToFind, int* seenLines, size_t* seenLinesSize, int line)
+static int lineDoesNotExistInFileAndHasNotBeenSeen(const List* fileLines, const char** lineToFind, NumberList* seenLines, int line)
 {
 	for (size_t i = 0; i < fileLines->size; i++)
 	{
-		if (strcmp(fileLines->list[i], *lineToFind) == 0 && !seenLine(seenLines, *seenLinesSize, i + 1) || (strlen(fileLines->list[i]) == 0 && strlen(*lineToFind) == 0))
+		if (strcmp(fileLines->list[i], *lineToFind) == 0 && !seenLine(seenLines, i + 1) || (strlen(fileLines->list[i]) == 0 && strlen(*lineToFind) == 0))
 		{
-			addToSeenLines(seenLines, seenLinesSize, (int)i + 1);
+			addToSeenLines(seenLines, (int)i + 1);
 			return 0;
 		}
 	}
@@ -210,11 +218,11 @@ static void drawLineNumber(int number, int posX, int posY)
 	DrawText(lineNumber, posX, posY, FONT_SIZE, (Color) { .a = 255, .r = 50, .g = 50, .b = 50 });
 }
 
-static int seenLine(int* seenLines, size_t seenLinesSize, int line)
+static int seenLine(NumberList* seenLines, int line)
 {
-	for (size_t i = 0; i < seenLinesSize; i++)
+	for (size_t i = 0; i < seenLines->size; i++)
 	{
-		if (seenLines[i] == line)
+		if (seenLines->list[i] == line)
 		{
 			return 1;
 		}
@@ -226,7 +234,6 @@ static int seenLine(int* seenLines, size_t seenLinesSize, int line)
 int main(void)
 {
 	InitWindow(WIDTH, HEIGHT, "TextComparer");
-	SetTargetFPS(30);
 
 	// Load font
 	Font robotoMonoFont = LoadFont("resources/RobotoMono-VariableFont_wght.ttf");
@@ -267,20 +274,18 @@ int main(void)
 
 		int posX = MARGIN_X;
 		int posY = MARGIN_Y;
-		// TODO: It feels as something is wrong with either the position of the
-		// line that divides the comparison or this math itself.
-		const size_t canFitUpToChars = floor(WIDTH / FONT_SIZE);
 
-		// TODO: this should be realloc'ed
-		int seenLines[_MAX_PATH] = { 0 };
-		size_t seenLinesSize = 0;
+		NumberList seenLines;
+		seenLines.list = calloc(1, sizeof(size_t));
+		seenLines.size = 1;
 
 		// Old file lines
 		for (size_t i = 0; i < contentFiles->oldFileLinesList.size; i++)
 		{
 			size_t lineSize = strlen(contentFiles->oldFileLinesList.list[i]);
+			size_t wholeLineSizeInPixels = MeasureTextEx(robotoMonoFont, contentFiles->oldFileLinesList.list[i], FONT_SIZE, 0).x;
 
-			if (lineSize > canFitUpToChars)
+			if (wholeLineSizeInPixels > FITS_UP_TO_CHARS)
 			{
 				// Draw the whole line in separate rendered lines.
 				size_t lineIdx = 0;
@@ -290,11 +295,16 @@ int main(void)
 
 				while (lineIdx < lineSize)
 				{
-					char partOfLineBuffer[(WIDTH / FONT_SIZE) + 1] = { 0 };
+					// TODO: this should also be reallocated. That said: do this after separating this function.
+					char partOfLineBuffer[_MAX_PATH] = { 0 };
 					size_t partOfLineBufferIdx = 0;
+					int measured = MeasureTextEx(robotoMonoFont, partOfLineBuffer, FONT_SIZE, 0).x;
 
-					while (partOfLineBufferIdx < canFitUpToChars && lineIdx < lineSize)
+					while (measured <= FITS_UP_TO_CHARS && lineIdx < lineSize)
+					{
 						partOfLineBuffer[partOfLineBufferIdx++] = contentFiles->oldFileLinesList.list[i][lineIdx++];
+						measured = MeasureTextEx(robotoMonoFont, partOfLineBuffer, FONT_SIZE, 0).x;
+					}
 
 					DrawTextEx(robotoMonoFont, partOfLineBuffer, (Vector2) { .x = posX + PADDING_FROM_LINE_NUMBER, .y = posY }, FONT_SIZE, 0, WHITE);
 					
@@ -333,21 +343,67 @@ int main(void)
 		// New file lines
 		for (size_t i = 0; i < contentFiles->newFileLinesList.size; i++)
 		{
-			if (lineDoesNotExistInFileAndHasNotBeenSeen(&contentFiles->oldFileLinesList, &contentFiles->newFileLinesList.list[i], seenLines, &seenLinesSize, i + 1))
+			size_t lineSize = strlen(contentFiles->newFileLinesList.list[i]);
+			size_t wholeLineSizeInPixels = MeasureTextEx(robotoMonoFont, contentFiles->newFileLinesList.list[i], FONT_SIZE, 0).x;
+
+			if (wholeLineSizeInPixels > FITS_UP_TO_CHARS)
 			{
-				DrawRectangle(posX, posY, WIDTH / 2, FONT_SIZE, (Color) { .a = 50, .r = 0, .g = 200, .b = 0 });
+				// Draw the whole line in separate rendered lines.
+				size_t lineIdx = 0;
+				int renderedLines = 0;
+				int alreadyDrawnLineNumber = 0;
+				int originalPosY = posY;
+
+				while (lineIdx < lineSize)
+				{
+					char partOfLineBuffer[_MAX_PATH] = { 0 };
+					size_t partOfLineBufferIdx = 0;
+					int measured = MeasureTextEx(robotoMonoFont, partOfLineBuffer, FONT_SIZE, 0).x;
+
+					while (measured <= FITS_UP_TO_CHARS && lineIdx < lineSize)
+					{
+						partOfLineBuffer[partOfLineBufferIdx++] = contentFiles->newFileLinesList.list[i][lineIdx++];
+						measured = MeasureTextEx(robotoMonoFont, partOfLineBuffer, FONT_SIZE, 0).x;
+					}
+
+					DrawTextEx(robotoMonoFont, partOfLineBuffer, (Vector2) { .x = posX + PADDING_FROM_LINE_NUMBER, .y = posY }, FONT_SIZE, 0, WHITE);
+
+					if (!alreadyDrawnLineNumber)
+					{
+						drawLineNumber((int)i + 1, posX, posY);
+						alreadyDrawnLineNumber = 1;
+					}
+
+					posY += FONT_SIZE + MARGIN_Y;
+					renderedLines++;
+				}
+
+				if (lineDoesNotExistInFileAndHasNotBeenSeen(&contentFiles->oldFileLinesList, &contentFiles->newFileLinesList.list[i], &seenLines, i + 1))
+				{
+					DrawRectangle(posX, originalPosY, WIDTH / 2, (FONT_SIZE * renderedLines) + MARGIN_Y, (Color) { .a = 50, .r = 0, .g = 200, .b = 0 });
+				}
+
+				continue;
 			}
 
 			drawLineNumber((int)i + 1, posX, posY);
+
+			if (lineDoesNotExistInFileAndHasNotBeenSeen(&contentFiles->oldFileLinesList, &contentFiles->newFileLinesList.list[i], &seenLines, i + 1))
+			{
+				DrawRectangle(posX, posY, WIDTH / 2, FONT_SIZE, (Color) { .a = 50, .r = 0, .g = 200, .b = 0 });
+			}
 
 			DrawTextEx(robotoMonoFont, contentFiles->newFileLinesList.list[i], (Vector2) { .x = posX + PADDING_FROM_LINE_NUMBER, .y = posY }, FONT_SIZE, 0, WHITE);
 			posY += FONT_SIZE + MARGIN_Y;
 		}
 
 		EndDrawing();
+
+		free(seenLines.list);
 	}
 
 	// cleanup
+
 	for (size_t i = 0; i < contentFiles->oldFileLinesList.size; i++)
 	{
 		free(contentFiles->oldFileLinesList.list[i]);
