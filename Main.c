@@ -26,8 +26,37 @@ typedef struct content_files {
 #define MARGIN_Y 5
 #define PADDING_FROM_LINE_NUMBER MARGIN_X * 6
 #define FITS_UP_TO_CHARS (WIDTH / 2) - (MARGIN_Y * 2) - PADDING_FROM_LINE_NUMBER
+#define MAX_RENDERED_LINE_SIZE 2048
 
 #define LINE_DELIMETER '\n'
+
+static char* readFileToBuffer(const char* filePath, size_t* readFileSize);
+static void cpyStrFromTo(char* dst, char* src, int fromSrc, int upToSrc);
+static List loadLinesIntoList(char* fileContentBuffer, char** fileLines);
+static ContentFiles* loadFilesIntoMemory(const char* oldFileBuffer, const char* newFileBuffer, const size_t oldFileSizeInBytes, const size_t newFileSizeInBytes);
+static void addToSeenLines(NumberList* numberList, int line);
+static int lineDoesNotExistInFile(const List* fileLines, const char** lineToFind);
+static int lineDoesNotExistInFileAndHasNotBeenSeen(const List* fileLines, const char** lineToFind, NumberList* seenLines, int line);
+static int seenLine(NumberList* seenLines, int line);
+static void renderOldFileLines(const ContentFiles* contentFiles, Font font);
+static void renderNewFileLines(const ContentFiles* contentFiles, Font font);
+
+static char* readFileToBuffer(const char* filePath, size_t* readFileSize)
+{
+	FILE* file = fopen(filePath, "r");
+	fseek(file, 0, SEEK_END);
+	*readFileSize = ftell(file);
+	rewind(file);
+	char* fileBuffer = calloc((*readFileSize) + 1, sizeof(char));
+	if (fileBuffer == 0) {
+		puts("Unable to allocate memory for old file buffer");
+		exit(1);
+	}
+	fread(fileBuffer, sizeof(char), *readFileSize, file);
+	fclose(file);
+
+	return fileBuffer;
+}
 
 static void cpyStrFromTo(char* dst, char* src, int fromSrc, int upToSrc)
 {
@@ -168,22 +197,140 @@ static ContentFiles* loadFilesIntoMemory(const char* oldFileBuffer, const char* 
 	return contentFiles;
 }
 
-static int contains(int* list, size_t size, int item)
+static void renderOldFileLines(const ContentFiles* contentFiles, Font font)
 {
-	for (size_t i = 0; i < size; i++)
-	{
-		if (list[i] == item)
-			return 1;
-	}
+	int posX = MARGIN_X;
+	int posY = MARGIN_Y;
 
-	return 0;
+	// Old file lines
+	for (size_t i = 0; i < contentFiles->oldFileLinesList.size; i++)
+	{
+		size_t lineSize = strlen(contentFiles->oldFileLinesList.list[i]);
+		Vector2 measuredText = MeasureTextEx(font, contentFiles->oldFileLinesList.list[i], FONT_SIZE, 0);
+
+		if (measuredText.x > FITS_UP_TO_CHARS)
+		{
+			size_t lineIdx = 0;
+			int renderedLines = 0;
+			int alreadyDrawnLineNumber = 0;
+			int originalPosY = posY;
+
+			while (lineIdx < lineSize)
+			{
+				char partOfLineBuffer[MAX_RENDERED_LINE_SIZE] = { 0 };
+				size_t partOfLineBufferIdx = 0;
+				Vector2 measuredPartOfLineText = MeasureTextEx(font, partOfLineBuffer, FONT_SIZE, 0);
+
+				while (measuredPartOfLineText.x <= FITS_UP_TO_CHARS && lineIdx < lineSize)
+				{
+					partOfLineBuffer[partOfLineBufferIdx++] = contentFiles->oldFileLinesList.list[i][lineIdx++];
+					measuredPartOfLineText = MeasureTextEx(font, partOfLineBuffer, FONT_SIZE, 0);
+				}
+
+				DrawTextEx(font, partOfLineBuffer, (Vector2) { .x = posX + PADDING_FROM_LINE_NUMBER, .y = posY }, FONT_SIZE, 0, WHITE);
+
+				if (!alreadyDrawnLineNumber)
+				{
+					drawLineNumber((int)i + 1, posX, posY);
+					alreadyDrawnLineNumber = 1;
+				}
+
+				posY += measuredText.y + MARGIN_Y;
+				renderedLines++;
+			}
+
+			if (lineDoesNotExistInFile(&contentFiles->newFileLinesList, &contentFiles->oldFileLinesList.list[i]))
+			{
+				DrawRectangle(posX, originalPosY, WIDTH / 2, (measuredText.y * renderedLines) + MARGIN_Y, (Color) { .a = 50, .r = 200, .g = 0, .b = 0 });
+			}
+
+			continue;
+		}
+
+		if (lineDoesNotExistInFile(&contentFiles->newFileLinesList, &contentFiles->oldFileLinesList.list[i]))
+		{
+			DrawRectangle(posX, posY, WIDTH / 2, measuredText.y, (Color) { .a = 50, .r = 200, .g = 0, .b = 0 });
+		}
+
+		drawLineNumber((int)i + 1, posX, posY);
+
+		DrawTextEx(font, contentFiles->oldFileLinesList.list[i], (Vector2) { .x = posX + PADDING_FROM_LINE_NUMBER, .y = posY }, FONT_SIZE, 0, WHITE);
+		posY += measuredText.y + MARGIN_Y;
+	}
 }
 
-static void addToSeenLines(NumberList* numberList, int line)
+static void renderNewFileLines(const ContentFiles* contentFiles, Font font)
 {
-	numberList->list[numberList->size - 1] = line;
-	size_t* reallocated = realloc(numberList->list, sizeof(size_t) * ++numberList->size);
-	numberList->list = reallocated;
+	int posX = (WIDTH / 2) + MARGIN_X;
+	int posY = MARGIN_Y;
+
+	NumberList seenLines;
+	seenLines.list = calloc(1, sizeof(size_t));
+	seenLines.size = 1;
+
+	for (size_t i = 0; i < contentFiles->newFileLinesList.size; i++)
+	{
+		size_t lineSize = strlen(contentFiles->newFileLinesList.list[i]);
+		Vector2 measuredText = MeasureTextEx(font, contentFiles->newFileLinesList.list[i], FONT_SIZE, 0);
+
+		if (measuredText.x > FITS_UP_TO_CHARS)
+		{
+			size_t lineIdx = 0;
+			int renderedLines = 0;
+			int alreadyDrawnLineNumber = 0;
+			int originalPosY = posY;
+
+			while (lineIdx < lineSize)
+			{
+				char partOfLineBuffer[MAX_RENDERED_LINE_SIZE] = { 0 };
+				size_t partOfLineBufferIdx = 0;
+				Vector2 measuredPartOfLineText = MeasureTextEx(font, partOfLineBuffer, FONT_SIZE, 0);
+
+				while (measuredPartOfLineText.x <= FITS_UP_TO_CHARS && lineIdx < lineSize)
+				{
+					partOfLineBuffer[partOfLineBufferIdx++] = contentFiles->newFileLinesList.list[i][lineIdx++];
+					measuredPartOfLineText = MeasureTextEx(font, partOfLineBuffer, FONT_SIZE, 0);
+				}
+
+				DrawTextEx(font, partOfLineBuffer, (Vector2) { .x = posX + PADDING_FROM_LINE_NUMBER, .y = posY }, FONT_SIZE, 0, WHITE);
+
+				if (!alreadyDrawnLineNumber)
+				{
+					drawLineNumber((int)i + 1, posX, posY);
+					alreadyDrawnLineNumber = 1;
+				}
+
+				posY += measuredPartOfLineText.y + MARGIN_Y;
+				renderedLines++;
+			}
+
+			if (lineDoesNotExistInFileAndHasNotBeenSeen(&contentFiles->oldFileLinesList, &contentFiles->newFileLinesList.list[i], &seenLines, i + 1))
+			{
+				DrawRectangle(posX, originalPosY, WIDTH / 2, (FONT_SIZE * renderedLines) + MARGIN_Y, (Color) { .a = 50, .r = 0, .g = 200, .b = 0 });
+			}
+
+			continue;
+		}
+
+		drawLineNumber((int)i + 1, posX, posY);
+
+		if (lineDoesNotExistInFileAndHasNotBeenSeen(&contentFiles->oldFileLinesList, &contentFiles->newFileLinesList.list[i], &seenLines, i + 1))
+		{
+			DrawRectangle(posX, posY, WIDTH / 2, measuredText.y, (Color) { .a = 50, .r = 0, .g = 200, .b = 0 });
+		}
+
+		DrawTextEx(font, contentFiles->newFileLinesList.list[i], (Vector2) { .x = posX + PADDING_FROM_LINE_NUMBER, .y = posY }, FONT_SIZE, 0, WHITE);
+		posY += measuredText.y + MARGIN_Y;
+	}
+
+	free(seenLines.list);
+}
+
+static void drawLineNumber(int number, int posX, int posY)
+{
+	char lineNumber[6] = { 0 };
+	sprintf_s(lineNumber, 6, "%d", number);
+	DrawText(lineNumber, posX, posY, FONT_SIZE, (Color) { .a = 255, .r = 50, .g = 50, .b = 50 });
 }
 
 static int lineDoesNotExistInFile(const List* fileLines, const char** lineToFind)
@@ -211,13 +358,6 @@ static int lineDoesNotExistInFileAndHasNotBeenSeen(const List* fileLines, const 
 	return 1;
 }
 
-static void drawLineNumber(int number, int posX, int posY)
-{
-	char lineNumber[6] = { 0 };
-	sprintf_s(lineNumber, 6, "%d", number);
-	DrawText(lineNumber, posX, posY, FONT_SIZE, (Color) { .a = 255, .r = 50, .g = 50, .b = 50 });
-}
-
 static int seenLine(NumberList* seenLines, int line)
 {
 	for (size_t i = 0; i < seenLines->size; i++)
@@ -231,38 +371,25 @@ static int seenLine(NumberList* seenLines, int line)
 	return 0;
 }
 
+static void addToSeenLines(NumberList* numberList, int line)
+{
+	numberList->list[numberList->size - 1] = line;
+	size_t* reallocated = realloc(numberList->list, sizeof(size_t) * ++numberList->size);
+	numberList->list = reallocated;
+}
+
 int main(void)
 {
 	InitWindow(WIDTH, HEIGHT, "TextComparer");
 
-	// Load font
 	Font robotoMonoFont = LoadFont("resources/RobotoMono-VariableFont_wght.ttf");
 
-	// opening old file
-	FILE* oldFile = fopen("resources/old_file.txt", "r");
-	fseek(oldFile, 0, SEEK_END);
-	size_t oldFileSizeInBytes = ftell(oldFile);
-	rewind(oldFile);
-	char* oldFileBuffer = calloc(oldFileSizeInBytes + 1, sizeof(char));
-	if (oldFileBuffer == 0) {
-		puts("Unable to allocate memory for old file buffer");
-		exit(1);
-	}
-	fread(oldFileBuffer, sizeof(char), oldFileSizeInBytes, oldFile);
+	size_t oldFileSizeInBytes = 0;
+	char* oldFileBuffer = readFileToBuffer("resources/old_file.txt", &oldFileSizeInBytes);
 
-	// opening new file
-	FILE* newFile = fopen("resources/new_file.txt", "r");
-	fseek(newFile, 0, SEEK_END);
-	size_t newFileSizeInBytes = ftell(newFile);
-	rewind(newFile);
-	char* newFileBuffer = calloc(newFileSizeInBytes + 1, sizeof(char));
-	if (newFileBuffer == 0) {
-		puts("Unable to allocate memory for new file buffer");
-		exit(1);
-	}
-	fread(newFileBuffer, sizeof(char), newFileSizeInBytes, newFile);
+	size_t newFileSizeInBytes = 0;
+	char* newFileBuffer = readFileToBuffer("resources/new_file.txt", &newFileSizeInBytes);
 
-	// Load file content into lists
 	ContentFiles* contentFiles = loadFilesIntoMemory(oldFileBuffer, newFileBuffer, oldFileSizeInBytes, newFileSizeInBytes);
 
 	while (!WindowShouldClose())
@@ -272,138 +399,15 @@ int main(void)
 
 		DrawLine(WIDTH / 2, 0, WIDTH / 2, HEIGHT, WHITE);
 
-		int posX = MARGIN_X;
-		int posY = MARGIN_Y;
-
-		NumberList seenLines;
-		seenLines.list = calloc(1, sizeof(size_t));
-		seenLines.size = 1;
-
-		// Old file lines
-		for (size_t i = 0; i < contentFiles->oldFileLinesList.size; i++)
-		{
-			size_t lineSize = strlen(contentFiles->oldFileLinesList.list[i]);
-			size_t wholeLineSizeInPixels = MeasureTextEx(robotoMonoFont, contentFiles->oldFileLinesList.list[i], FONT_SIZE, 0).x;
-
-			if (wholeLineSizeInPixels > FITS_UP_TO_CHARS)
-			{
-				// Draw the whole line in separate rendered lines.
-				size_t lineIdx = 0;
-				int renderedLines = 0;
-				int alreadyDrawnLineNumber = 0;
-				int originalPosY = posY;
-
-				while (lineIdx < lineSize)
-				{
-					// TODO: this should also be reallocated. That said: do this after separating this function.
-					char partOfLineBuffer[_MAX_PATH] = { 0 };
-					size_t partOfLineBufferIdx = 0;
-					Vector2 measuredText = MeasureTextEx(robotoMonoFont, partOfLineBuffer, FONT_SIZE, 0);
-
-					while (measuredText.x <= FITS_UP_TO_CHARS && lineIdx < lineSize)
-					{
-						partOfLineBuffer[partOfLineBufferIdx++] = contentFiles->oldFileLinesList.list[i][lineIdx++];
-						measuredText = MeasureTextEx(robotoMonoFont, partOfLineBuffer, FONT_SIZE, 0);
-					}
-
-					DrawTextEx(robotoMonoFont, partOfLineBuffer, (Vector2) { .x = posX + PADDING_FROM_LINE_NUMBER, .y = posY }, FONT_SIZE, 0, WHITE);
-					
-					if (!alreadyDrawnLineNumber)
-					{
-						drawLineNumber((int)i + 1, posX, posY);
-						alreadyDrawnLineNumber = 1;
-					}
-
-					posY += measuredText.y + MARGIN_Y;
-					renderedLines++;
-				}
-
-				if (lineDoesNotExistInFile(&contentFiles->newFileLinesList, &contentFiles->oldFileLinesList.list[i]))
-				{
-					DrawRectangle(posX, originalPosY, WIDTH / 2, (FONT_SIZE * renderedLines) + MARGIN_Y, (Color) { .a = 50, .r = 200, .g = 0, .b = 0 });
-				}
-
-				continue;
-			}
-
-			if (lineDoesNotExistInFile(&contentFiles->newFileLinesList, &contentFiles->oldFileLinesList.list[i]))
-			{
-				DrawRectangle(posX, posY, WIDTH / 2, FONT_SIZE, (Color) { .a = 50, .r = 200, .g = 0, .b = 0 });
-			}
-
-			drawLineNumber((int)i + 1, posX, posY);
-
-			DrawTextEx(robotoMonoFont, contentFiles->oldFileLinesList.list[i], (Vector2) { .x = posX + PADDING_FROM_LINE_NUMBER, .y = posY }, FONT_SIZE, 0, WHITE);
-			posY += FONT_SIZE + MARGIN_Y;
-		}
-
-		posX = (WIDTH / 2) + MARGIN_X;
-		posY = MARGIN_Y;
+		renderOldFileLines(contentFiles, robotoMonoFont);
 
 		// New file lines
-		for (size_t i = 0; i < contentFiles->newFileLinesList.size; i++)
-		{
-			size_t lineSize = strlen(contentFiles->newFileLinesList.list[i]);
-			size_t wholeLineSizeInPixels = MeasureTextEx(robotoMonoFont, contentFiles->newFileLinesList.list[i], FONT_SIZE, 0).x;
-
-			if (wholeLineSizeInPixels > FITS_UP_TO_CHARS)
-			{
-				// Draw the whole line in separate rendered lines.
-				size_t lineIdx = 0;
-				int renderedLines = 0;
-				int alreadyDrawnLineNumber = 0;
-				int originalPosY = posY;
-
-				while (lineIdx < lineSize)
-				{
-					char partOfLineBuffer[_MAX_PATH] = { 0 };
-					size_t partOfLineBufferIdx = 0;
-					Vector2 measuredText = MeasureTextEx(robotoMonoFont, partOfLineBuffer, FONT_SIZE, 0);
-
-					while (measuredText.x <= FITS_UP_TO_CHARS && lineIdx < lineSize)
-					{
-						partOfLineBuffer[partOfLineBufferIdx++] = contentFiles->newFileLinesList.list[i][lineIdx++];
-						measuredText = MeasureTextEx(robotoMonoFont, partOfLineBuffer, FONT_SIZE, 0);
-					}
-
-					DrawTextEx(robotoMonoFont, partOfLineBuffer, (Vector2) { .x = posX + PADDING_FROM_LINE_NUMBER, .y = posY }, FONT_SIZE, 0, WHITE);
-
-					if (!alreadyDrawnLineNumber)
-					{
-						drawLineNumber((int)i + 1, posX, posY);
-						alreadyDrawnLineNumber = 1;
-					}
-
-					posY += measuredText.y + MARGIN_Y;
-					renderedLines++;
-				}
-
-				if (lineDoesNotExistInFileAndHasNotBeenSeen(&contentFiles->oldFileLinesList, &contentFiles->newFileLinesList.list[i], &seenLines, i + 1))
-				{
-					DrawRectangle(posX, originalPosY, WIDTH / 2, (FONT_SIZE * renderedLines) + MARGIN_Y, (Color) { .a = 50, .r = 0, .g = 200, .b = 0 });
-				}
-
-				continue;
-			}
-
-			drawLineNumber((int)i + 1, posX, posY);
-
-			if (lineDoesNotExistInFileAndHasNotBeenSeen(&contentFiles->oldFileLinesList, &contentFiles->newFileLinesList.list[i], &seenLines, i + 1))
-			{
-				DrawRectangle(posX, posY, WIDTH / 2, FONT_SIZE, (Color) { .a = 50, .r = 0, .g = 200, .b = 0 });
-			}
-
-			DrawTextEx(robotoMonoFont, contentFiles->newFileLinesList.list[i], (Vector2) { .x = posX + PADDING_FROM_LINE_NUMBER, .y = posY }, FONT_SIZE, 0, WHITE);
-			posY += FONT_SIZE + MARGIN_Y;
-		}
+		renderNewFileLines(contentFiles, robotoMonoFont);
 
 		EndDrawing();
-
-		free(seenLines.list);
 	}
 
 	// cleanup
-
 	for (size_t i = 0; i < contentFiles->oldFileLinesList.size; i++)
 	{
 		free(contentFiles->oldFileLinesList.list[i]);
@@ -417,8 +421,6 @@ int main(void)
 	free(contentFiles);
 	free(newFileBuffer);
 	free(oldFileBuffer);
-	fclose(oldFile);
-	fclose(newFile);
 
 	CloseWindow();
 
