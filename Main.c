@@ -298,12 +298,12 @@ int main(void)
 					// TODO: this should also be reallocated. That said: do this after separating this function.
 					char partOfLineBuffer[_MAX_PATH] = { 0 };
 					size_t partOfLineBufferIdx = 0;
-					int measured = MeasureTextEx(robotoMonoFont, partOfLineBuffer, FONT_SIZE, 0).x;
+					Vector2 measuredText = MeasureTextEx(robotoMonoFont, partOfLineBuffer, FONT_SIZE, 0);
 
-					while (measured <= FITS_UP_TO_CHARS && lineIdx < lineSize)
+					while (measuredText.x <= FITS_UP_TO_CHARS && lineIdx < lineSize)
 					{
 						partOfLineBuffer[partOfLineBufferIdx++] = contentFiles->oldFileLinesList.list[i][lineIdx++];
-						measured = MeasureTextEx(robotoMonoFont, partOfLineBuffer, FONT_SIZE, 0).x;
+						measuredText = MeasureTextEx(robotoMonoFont, partOfLineBuffer, FONT_SIZE, 0);
 					}
 
 					DrawTextEx(robotoMonoFont, partOfLineBuffer, (Vector2) { .x = posX + PADDING_FROM_LINE_NUMBER, .y = posY }, FONT_SIZE, 0, WHITE);
@@ -314,7 +314,7 @@ int main(void)
 						alreadyDrawnLineNumber = 1;
 					}
 
-					posY += FONT_SIZE + MARGIN_Y;
+					posY += measuredText.y + MARGIN_Y;
 					renderedLines++;
 				}
 
@@ -358,12 +358,12 @@ int main(void)
 				{
 					char partOfLineBuffer[_MAX_PATH] = { 0 };
 					size_t partOfLineBufferIdx = 0;
-					int measured = MeasureTextEx(robotoMonoFont, partOfLineBuffer, FONT_SIZE, 0).x;
+					Vector2 measuredText = MeasureTextEx(robotoMonoFont, partOfLineBuffer, FONT_SIZE, 0);
 
-					while (measured <= FITS_UP_TO_CHARS && lineIdx < lineSize)
+					while (measuredText.x <= FITS_UP_TO_CHARS && lineIdx < lineSize)
 					{
 						partOfLineBuffer[partOfLineBufferIdx++] = contentFiles->newFileLinesList.list[i][lineIdx++];
-						measured = MeasureTextEx(robotoMonoFont, partOfLineBuffer, FONT_SIZE, 0).x;
+						measuredText = MeasureTextEx(robotoMonoFont, partOfLineBuffer, FONT_SIZE, 0);
 					}
 
 					DrawTextEx(robotoMonoFont, partOfLineBuffer, (Vector2) { .x = posX + PADDING_FROM_LINE_NUMBER, .y = posY }, FONT_SIZE, 0, WHITE);
@@ -374,7 +374,7 @@ int main(void)
 						alreadyDrawnLineNumber = 1;
 					}
 
-					posY += FONT_SIZE + MARGIN_Y;
+					posY += measuredText.y + MARGIN_Y;
 					renderedLines++;
 				}
 
