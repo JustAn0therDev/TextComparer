@@ -31,7 +31,6 @@ typedef struct content_files {
 #define LINE_DELIMETER '\n'
 
 static char* readFileToBuffer(const char* filePath, size_t* readFileSize);
-static void cpyStrFromTo(char* dst, char* src, int fromSrc, int upToSrc);
 static List loadLinesIntoList(char* fileContentBuffer, char** fileLines);
 static ContentFiles* loadFilesIntoMemory(const char* oldFileBuffer, const char* newFileBuffer, const size_t oldFileSizeInBytes, const size_t newFileSizeInBytes);
 static void addToSeenLines(NumberList* numberList, int line);
@@ -57,17 +56,6 @@ static char* readFileToBuffer(const char* filePath, size_t* readFileSize)
 	fclose(file);
 
 	return fileBuffer;
-}
-
-static void cpyStrFromTo(char* dst, char* src, int fromSrc, int upToSrc)
-{
-	int i = 0;
-	while (fromSrc < upToSrc)
-	{
-		if (src[fromSrc] == '\0')
-			break;
-		dst[i++] = src[fromSrc++];
-	}
 }
 
 static List loadLinesIntoList(char* fileContentBuffer, char** fileLines)
