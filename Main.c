@@ -407,6 +407,8 @@ int main(void)
 	}
 
 	// cleanup
+	UnloadFont(robotoMonoFont);
+
 	for (size_t i = 0; i < contentFiles->oldFileLinesList.size; i++)
 	{
 		free(contentFiles->oldFileLinesList.list[i]);
