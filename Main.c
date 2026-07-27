@@ -205,7 +205,6 @@ static void renderOldFileLines(const ContentFiles* contentFiles, Font font)
 			int renderedLines = 0;
 			int alreadyDrawnLineNumber = 0;
 			int originalPosY = posY;
-			float finalRectangleHeight = 0;
 
 			while (lineIdx < lineSize)
 			{
@@ -218,8 +217,6 @@ static void renderOldFileLines(const ContentFiles* contentFiles, Font font)
 					partOfLineBuffer[partOfLineBufferIdx++] = contentFiles->oldFileLinesList.list[i][lineIdx++];
 					measuredPartOfLineText = MeasureTextEx(font, partOfLineBuffer, FONT_SIZE, 0);
 				}
-
-				finalRectangleHeight += measuredPartOfLineText.y;
 
 				DrawTextEx(font, partOfLineBuffer, (Vector2) { .x = posX + PADDING_FROM_LINE_NUMBER, .y = posY }, FONT_SIZE, 0, WHITE);
 
