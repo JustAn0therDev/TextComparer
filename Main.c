@@ -192,7 +192,6 @@ static void renderOldFileLines(const ContentFiles* contentFiles, Font font)
 	int posX = MARGIN_X;
 	int posY = MARGIN_Y;
 
-	// Old file lines
 	for (size_t i = 0; i < contentFiles->oldFileLinesList.size; i++)
 	{
 		size_t lineSize = strlen(contentFiles->oldFileLinesList.list[i]);
@@ -405,8 +404,6 @@ int main(void)
 		DrawLine(WIDTH / 2, 0, WIDTH / 2, HEIGHT, WHITE);
 
 		renderOldFileLines(contentFiles, robotoMonoFont);
-
-		// New file lines
 		renderNewFileLines(contentFiles, robotoMonoFont);
 
 		EndDrawing();
