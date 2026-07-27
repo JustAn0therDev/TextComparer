@@ -40,6 +40,7 @@ static int seenLine(NumberList* seenLines, int line);
 static void drawLineNumber(int number, int posX, int posY);
 static void renderOldFileLines(const ContentFiles* contentFiles, Font font);
 static void renderNewFileLines(const ContentFiles* contentFiles, Font font);
+static int normalizeTextHeightIfLineIsEmpty(Vector2* measuredText);
 
 static char* readFileToBuffer(const char* filePath, size_t* readFileSize)
 {
@@ -197,12 +198,15 @@ static void renderOldFileLines(const ContentFiles* contentFiles, Font font)
 		size_t lineSize = strlen(contentFiles->oldFileLinesList.list[i]);
 		Vector2 measuredText = MeasureTextEx(font, contentFiles->oldFileLinesList.list[i], FONT_SIZE, 0);
 
+		normalizeTextHeightIfLineIsEmpty(&measuredText);
+
 		if (measuredText.x > FITS_UP_TO_CHARS)
 		{
 			size_t lineIdx = 0;
 			int renderedLines = 0;
 			int alreadyDrawnLineNumber = 0;
 			int originalPosY = posY;
+			float finalRectangleHeight = 0;
 
 			while (lineIdx < lineSize)
 			{
@@ -215,6 +219,8 @@ static void renderOldFileLines(const ContentFiles* contentFiles, Font font)
 					partOfLineBuffer[partOfLineBufferIdx++] = contentFiles->oldFileLinesList.list[i][lineIdx++];
 					measuredPartOfLineText = MeasureTextEx(font, partOfLineBuffer, FONT_SIZE, 0);
 				}
+
+				finalRectangleHeight += measuredPartOfLineText.y;
 
 				DrawTextEx(font, partOfLineBuffer, (Vector2) { .x = posX + PADDING_FROM_LINE_NUMBER, .y = posY }, FONT_SIZE, 0, WHITE);
 
@@ -230,7 +236,7 @@ static void renderOldFileLines(const ContentFiles* contentFiles, Font font)
 
 			if (lineDoesNotExistInFile(&contentFiles->newFileLinesList, &contentFiles->oldFileLinesList.list[i]))
 			{
-				DrawRectangle(posX, originalPosY, WIDTH / 2, (measuredText.y * renderedLines) + MARGIN_Y, (Color) { .a = 50, .r = 200, .g = 0, .b = 0 });
+				DrawRectangle(posX, originalPosY, (WIDTH / 2) - MARGIN_X, ((measuredText.y + MARGIN_Y) * renderedLines), (Color) { .a = 50, .r = 200, .g = 0, .b = 0 });
 			}
 
 			continue;
@@ -238,7 +244,7 @@ static void renderOldFileLines(const ContentFiles* contentFiles, Font font)
 
 		if (lineDoesNotExistInFile(&contentFiles->newFileLinesList, &contentFiles->oldFileLinesList.list[i]))
 		{
-			DrawRectangle(posX, posY, WIDTH / 2, measuredText.y, (Color) { .a = 50, .r = 200, .g = 0, .b = 0 });
+			DrawRectangle(posX, posY, (WIDTH / 2) - MARGIN_X, measuredText.y, (Color) { .a = 50, .r = 200, .g = 0, .b = 0 });
 		}
 
 		drawLineNumber((int)i + 1, posX, posY);
@@ -261,6 +267,8 @@ static void renderNewFileLines(const ContentFiles* contentFiles, Font font)
 	{
 		size_t lineSize = strlen(contentFiles->newFileLinesList.list[i]);
 		Vector2 measuredText = MeasureTextEx(font, contentFiles->newFileLinesList.list[i], FONT_SIZE, 0);
+
+		normalizeTextHeightIfLineIsEmpty(&measuredText);
 
 		if (measuredText.x > FITS_UP_TO_CHARS)
 		{
@@ -295,7 +303,7 @@ static void renderNewFileLines(const ContentFiles* contentFiles, Font font)
 
 			if (lineDoesNotExistInFileAndHasNotBeenSeen(&contentFiles->oldFileLinesList, &contentFiles->newFileLinesList.list[i], &seenLines, i + 1))
 			{
-				DrawRectangle(posX, originalPosY, WIDTH / 2, (FONT_SIZE * renderedLines) + MARGIN_Y, (Color) { .a = 50, .r = 0, .g = 200, .b = 0 });
+				DrawRectangle(posX, originalPosY, (WIDTH / 2) - MARGIN_X, (FONT_SIZE * renderedLines) + MARGIN_Y, (Color) { .a = 50, .r = 0, .g = 200, .b = 0 });
 			}
 
 			continue;
@@ -305,7 +313,7 @@ static void renderNewFileLines(const ContentFiles* contentFiles, Font font)
 
 		if (lineDoesNotExistInFileAndHasNotBeenSeen(&contentFiles->oldFileLinesList, &contentFiles->newFileLinesList.list[i], &seenLines, i + 1))
 		{
-			DrawRectangle(posX, posY, WIDTH / 2, measuredText.y, (Color) { .a = 50, .r = 0, .g = 200, .b = 0 });
+			DrawRectangle(posX, posY, (WIDTH / 2) - MARGIN_X, measuredText.y, (Color) { .a = 50, .r = 0, .g = 200, .b = 0 });
 		}
 
 		DrawTextEx(font, contentFiles->newFileLinesList.list[i], (Vector2) { .x = posX + PADDING_FROM_LINE_NUMBER, .y = posY }, FONT_SIZE, 0, WHITE);
@@ -365,6 +373,14 @@ static void addToSeenLines(NumberList* numberList, int line)
 	numberList->list[numberList->size - 1] = line;
 	size_t* reallocated = realloc(numberList->list, sizeof(size_t) * ++numberList->size);
 	numberList->list = reallocated;
+}
+
+static int normalizeTextHeightIfLineIsEmpty(Vector2* measuredText)
+{
+	if (measuredText->y == 0)
+	{
+		measuredText->y = FONT_SIZE;
+	}
 }
 
 int main(void)
