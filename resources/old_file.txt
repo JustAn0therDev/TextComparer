@@ -6,5 +6,17 @@ public class Program
 	{
 		Console.WriteLine("This message should say 'Hello World' but it doesn't. Don't think too much of it.");
 		// This comment will also have been deleted in the new file!
+		// This line won't exist in the new file. That said, it'll be a very big line. Look, this is a lorem ipsum text: 
+/*
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec quis faucibus purus, eget dapibus elit. Aenean fringilla magna metus, a euismod enim porttitor eget. In efficitur facilisis mattis. Sed mi dolor, interdum id mollis et, suscipit nec tortor. Sed aliquet justo eu tellus aliquam, in imperdiet risus sollicitudin. Aenean placerat nulla ac sagittis congue. In iaculis vel diam ac luctus. Maecenas ac auctor sapien, a tempor erat. Etiam tincidunt finibus ex, vel interdum nisl gravida ut. Nullam ornare auctor leo eget porta.
+
+Mauris non augue turpis. Sed porttitor vitae nisi nec imperdiet. Praesent at ex lectus. Morbi sit amet metus eros. Curabitur rhoncus gravida egestas. Suspendisse potenti. Praesent rutrum nisi at interdum tincidunt. Etiam sed est et turpis aliquet consectetur in non ligula. Fusce molestie mollis nisl convallis hendrerit. Aliquam magna eros, malesuada vel risus ac, aliquam tempor lorem. Nam pellentesque volutpat ex id luctus. Nullam neque enim, dictum sit amet elementum eu, sagittis non quam.
+
+Morbi dapibus lobortis est sit amet fringilla. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia curae; Mauris aliquet, ante sit amet efficitur bibendum, erat nisi bibendum ipsum, non faucibus dui lacus sit amet urna. Proin et metus ipsum. Sed vehicula orci massa, sit amet accumsan erat imperdiet eget. Cras sollicitudin justo orci, vel elementum orci tempus quis. Cras volutpat feugiat libero non malesuada. Ut sit amet euismod augue. Morbi molestie leo at commodo dapibus. Nam pulvinar felis ut magna vulputate malesuada. Morbi ac quam vitae orci sodales finibus eget vel leo. Fusce luctus dui nec lorem convallis, at consectetur augue elementum.
+
+Suspendisse rhoncus lacinia tortor, ac tristique odio ultricies non. Sed elementum vulputate sem vitae mollis. Cras fringilla elit quis massa malesuada convallis. In sed fermentum mi, id eleifend tellus. Duis suscipit nibh eget lacus rutrum fringilla. Cras aliquet purus ac risus facilisis, blandit sollicitudin risus tincidunt. Mauris sodales lacus a tellus elementum fringilla. Nunc cursus diam sit amet vulputate bibendum. Ut fringilla, dui id aliquet volutpat, dolor ipsum ornare sapien, eu vehicula nisl quam et eros. Duis luctus nec dolor non volutpat. Cras quis luctus neque, ut hendrerit justo. Ut quis massa dui. Donec tincidunt, nunc id aliquam viverra, odio neque tincidunt leo, ut dignissim nulla ligula at nulla. Suspendisse accumsan accumsan porta. In finibus id ipsum et ornare.
+
+Aliquam dictum blandit eros. Aliquam nec placerat sapien, in dapibus dui. Curabitur nunc ipsum, efficitur a tempus interdum, malesuada commodo purus. Donec egestas nisl nec pharetra tempus. Duis posuere ligula quis orci lacinia aliquam. Integer vel pellentesque ex. Sed feugiat est sed sem euismod rutrum.
+*/
 	}
 }
