@@ -19,15 +19,18 @@ typedef struct content_files {
 	List newFileLinesList;
 } ContentFiles;
 
-#define WIDTH 1600
-#define HEIGHT 900
+#define WIDTH 1280
+#define HEIGHT 720
 #define FONT_SIZE 20
 #define MARGIN_X 5
 #define MARGIN_Y 5
 #define PADDING_FROM_LINE_NUMBER MARGIN_X * 6
 #define FITS_UP_TO_CHARS (WIDTH / 2) - (MARGIN_Y * 2) - PADDING_FROM_LINE_NUMBER
 #define MAX_RENDERED_LINE_SIZE 2048
-
+#ifdef _DEBUG
+// NOTE: This is for my setup. You don't have to call the SetWindowMonitor function if you don't want to.
+#define SECONDARY_MONITOR_ID 1
+#endif
 #define LINE_DELIMETER '\n'
 
 static char* readFileToBuffer(const char* filePath, size_t* readFileSize);
@@ -38,8 +41,8 @@ static int lineDoesNotExistInFile(const List* fileLines, const char** lineToFind
 static int lineDoesNotExistInFileAndHasNotBeenSeen(const List* fileLines, const char** lineToFind, NumberList* seenLines, int line);
 static int seenLine(NumberList* seenLines, int line);
 static void drawLineNumber(int number, int posX, int posY);
-static void renderOldFileLines(const ContentFiles* contentFiles, Font font);
-static void renderNewFileLines(const ContentFiles* contentFiles, Font font);
+static void renderOldFileLines(const ContentFiles* contentFiles, Font font, int* fileScrollIndex, int* renderedFinalLine);
+static void renderNewFileLines(const ContentFiles* contentFiles, Font font, int* fileScrollIndex, int* renderedFinalLine);
 static int normalizeTextHeightIfLineIsEmpty(Vector2* measuredText);
 
 static char* readFileToBuffer(const char* filePath, size_t* readFileSize)
@@ -187,12 +190,12 @@ static ContentFiles* loadFilesIntoMemory(const char* oldFileBuffer, const char* 
 	return contentFiles;
 }
 
-static void renderOldFileLines(const ContentFiles* contentFiles, Font font)
+static void renderOldFileLines(const ContentFiles* contentFiles, Font font, int* fileScrollIndex, int* renderedFinalLine)
 {
 	int posX = MARGIN_X;
 	int posY = MARGIN_Y;
 
-	for (size_t i = 0; i < contentFiles->oldFileLinesList.size; i++)
+	for (size_t i = *fileScrollIndex; i < contentFiles->oldFileLinesList.size && posY <= HEIGHT; i++)
 	{
 		size_t lineSize = strlen(contentFiles->oldFileLinesList.list[i]);
 		Vector2 measuredText = MeasureTextEx(font, contentFiles->oldFileLinesList.list[i], FONT_SIZE, 0);
@@ -248,9 +251,11 @@ static void renderOldFileLines(const ContentFiles* contentFiles, Font font)
 		DrawTextEx(font, contentFiles->oldFileLinesList.list[i], (Vector2) { .x = posX + PADDING_FROM_LINE_NUMBER, .y = posY }, FONT_SIZE, 0, WHITE);
 		posY += measuredText.y + MARGIN_Y;
 	}
+
+	*renderedFinalLine = posY < HEIGHT;
 }
 
-static void renderNewFileLines(const ContentFiles* contentFiles, Font font)
+static void renderNewFileLines(const ContentFiles* contentFiles, Font font, int* fileScrollIndex, int* renderedFinalLine)
 {
 	int posX = (WIDTH / 2) + MARGIN_X;
 	int posY = MARGIN_Y;
@@ -259,7 +264,7 @@ static void renderNewFileLines(const ContentFiles* contentFiles, Font font)
 	seenLines.list = calloc(1, sizeof(size_t));
 	seenLines.size = 1;
 
-	for (size_t i = 0; i < contentFiles->newFileLinesList.size; i++)
+	for (size_t i = *fileScrollIndex; i < contentFiles->newFileLinesList.size; i++)
 	{
 		size_t lineSize = strlen(contentFiles->newFileLinesList.list[i]);
 		Vector2 measuredText = MeasureTextEx(font, contentFiles->newFileLinesList.list[i], FONT_SIZE, 0);
@@ -317,6 +322,7 @@ static void renderNewFileLines(const ContentFiles* contentFiles, Font font)
 	}
 
 	free(seenLines.list);
+	*renderedFinalLine = posY < HEIGHT;
 }
 
 static void drawLineNumber(int number, int posX, int posY)
@@ -383,6 +389,10 @@ int main(void)
 {
 	InitWindow(WIDTH, HEIGHT, "TextComparer");
 
+#ifdef _DEBUG
+	SetWindowMonitor(SECONDARY_MONITOR_ID);
+#endif
+
 	Font robotoMonoFont = LoadFont("resources/RobotoMono-VariableFont_wght.ttf");
 
 	size_t oldFileSizeInBytes = 0;
@@ -393,6 +403,11 @@ int main(void)
 
 	ContentFiles* contentFiles = loadFilesIntoMemory(oldFileBuffer, newFileBuffer, oldFileSizeInBytes, newFileSizeInBytes);
 
+	int oldFileScrollIndex = 0;
+	int newFileScrollIndex = 0;
+	int renderedFinalOldFileLine = 0;
+	int renderedFinalNewFileLine = 0;
+
 	while (!WindowShouldClose())
 	{
 		BeginDrawing();
@@ -400,8 +415,27 @@ int main(void)
 
 		DrawLine(WIDTH / 2, 0, WIDTH / 2, HEIGHT, WHITE);
 
-		renderOldFileLines(contentFiles, robotoMonoFont);
-		renderNewFileLines(contentFiles, robotoMonoFont);
+		Vector2 mousePos = GetMousePosition();
+
+		renderOldFileLines(contentFiles, robotoMonoFont, &oldFileScrollIndex, &renderedFinalOldFileLine);
+		renderNewFileLines(contentFiles, robotoMonoFont, &newFileScrollIndex, &renderedFinalNewFileLine);
+
+		if (mousePos.x < WIDTH / 2 && mousePos.y <= HEIGHT) {
+			if (IsKeyReleased(KEY_DOWN) && !renderedFinalOldFileLine) {
+				oldFileScrollIndex++;
+			}
+			else if (IsKeyReleased(KEY_UP)) {
+				oldFileScrollIndex = oldFileScrollIndex == 0 ? 0 : oldFileScrollIndex - 1;
+			}
+		}
+		else if (mousePos.x >= WIDTH / 2 && mousePos.y <= HEIGHT) {
+			if (IsKeyReleased(KEY_DOWN) && !renderedFinalNewFileLine) {
+				newFileScrollIndex++;
+			}
+			else if (IsKeyReleased(KEY_UP)) {
+				newFileScrollIndex = newFileScrollIndex == 0 ? 0 : newFileScrollIndex - 1;
+			}
+		}
 
 		EndDrawing();
 	}
