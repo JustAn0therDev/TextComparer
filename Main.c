@@ -44,6 +44,7 @@ static void drawLineNumber(int number, int posX, int posY);
 static void renderOldFileLines(const ContentFiles* contentFiles, Font font, int* fileScrollIndex, int* renderedFinalLine);
 static void renderNewFileLines(const ContentFiles* contentFiles, Font font, int* fileScrollIndex, int* renderedFinalLine);
 static int normalizeTextHeightIfLineIsEmpty(Vector2* measuredText);
+static void setScrollIndexBasedOnMouseWheelMovement(int* oldFileScrollIndex, int* newFileScrollIndex, int* renderedFinalOldFileLine, int* renderedFinalNewFileLine);
 
 static char* readFileToBuffer(const char* filePath, size_t* readFileSize)
 {
@@ -385,6 +386,32 @@ static int normalizeTextHeightIfLineIsEmpty(Vector2* measuredText)
 	}
 }
 
+static void setScrollIndexBasedOnMouseWheelMovement(int* oldFileScrollIndex, int* newFileScrollIndex, int* renderedFinalOldFileLine, int* renderedFinalNewFileLine)
+{
+	Vector2 mousePos = GetMousePosition();
+	float mouseWheelMovement = GetMouseWheelMove();
+
+	int mouseInOldFileWindow = mousePos.x < WIDTH / 2 && mousePos.y <= HEIGHT;
+	int mouseInNewFileWindow = mousePos.x >= WIDTH / 2 && mousePos.y <= HEIGHT;
+
+	if (mouseInOldFileWindow) {
+		if (mouseWheelMovement < 0 && !(*renderedFinalOldFileLine)) {
+			(*oldFileScrollIndex)++;
+		}
+		else if (mouseWheelMovement > 0) {
+			*oldFileScrollIndex = *oldFileScrollIndex == 0 ? 0 : *oldFileScrollIndex - 1;
+		}
+	}
+	else if (mouseInNewFileWindow) {
+		if (mouseWheelMovement < 0 && !(*renderedFinalNewFileLine)) {
+			(*newFileScrollIndex)++;
+		}
+		else if (mouseWheelMovement > 0) {
+			*newFileScrollIndex = *newFileScrollIndex == 0 ? 0 : *newFileScrollIndex - 1;
+		}
+	}
+}
+
 int main(void)
 {
 	InitWindow(WIDTH, HEIGHT, "TextComparer");
@@ -415,27 +442,10 @@ int main(void)
 
 		DrawLine(WIDTH / 2, 0, WIDTH / 2, HEIGHT, WHITE);
 
-		Vector2 mousePos = GetMousePosition();
-
 		renderOldFileLines(contentFiles, robotoMonoFont, &oldFileScrollIndex, &renderedFinalOldFileLine);
 		renderNewFileLines(contentFiles, robotoMonoFont, &newFileScrollIndex, &renderedFinalNewFileLine);
 
-		if (mousePos.x < WIDTH / 2 && mousePos.y <= HEIGHT) {
-			if (IsKeyReleased(KEY_DOWN) && !renderedFinalOldFileLine) {
-				oldFileScrollIndex++;
-			}
-			else if (IsKeyReleased(KEY_UP)) {
-				oldFileScrollIndex = oldFileScrollIndex == 0 ? 0 : oldFileScrollIndex - 1;
-			}
-		}
-		else if (mousePos.x >= WIDTH / 2 && mousePos.y <= HEIGHT) {
-			if (IsKeyReleased(KEY_DOWN) && !renderedFinalNewFileLine) {
-				newFileScrollIndex++;
-			}
-			else if (IsKeyReleased(KEY_UP)) {
-				newFileScrollIndex = newFileScrollIndex == 0 ? 0 : newFileScrollIndex - 1;
-			}
-		}
+		setScrollIndexBasedOnMouseWheelMovement(&oldFileScrollIndex, &newFileScrollIndex, &renderedFinalOldFileLine, &renderedFinalNewFileLine);
 
 		EndDrawing();
 	}
