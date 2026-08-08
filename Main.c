@@ -265,7 +265,7 @@ static void renderNewFileLines(const ContentFiles* contentFiles, Font font, int*
 	seenLines.list = calloc(1, sizeof(size_t));
 	seenLines.size = 1;
 
-	for (size_t i = *fileScrollIndex; i < contentFiles->newFileLinesList.size; i++)
+	for (size_t i = *fileScrollIndex; i < contentFiles->newFileLinesList.size && posY <= HEIGHT; i++)
 	{
 		size_t lineSize = strlen(contentFiles->newFileLinesList.list[i]);
 		Vector2 measuredText = MeasureTextEx(font, contentFiles->newFileLinesList.list[i], FONT_SIZE, 0);
