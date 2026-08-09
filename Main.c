@@ -40,9 +40,9 @@ static void addToSeenLines(NumberList* numberList, int line);
 static int lineDoesNotExistInFile(const List* fileLines, const char** lineToFind);
 static int lineDoesNotExistInFileAndHasNotBeenSeen(const List* fileLines, const char** lineToFind, NumberList* seenLines, int line);
 static int seenLine(NumberList* seenLines, int line);
-static void drawLineNumber(Font* font, int number, int posX, int posY);
-static void renderOldFileLines(const ContentFiles* contentFiles, Font* font, int* fileScrollIndex, int* renderedFinalLine);
-static void renderNewFileLines(const ContentFiles* contentFiles, Font* font, int* fileScrollIndex, int* renderedFinalLine);
+static void drawLineNumber(const Font* font, int number, int posX, int posY);
+static void renderOldFileLines(const ContentFiles* contentFiles, const Font* font, int* fileScrollIndex, int* renderedFinalLine);
+static void renderNewFileLines(const ContentFiles* contentFiles, const Font* font, int* fileScrollIndex, int* renderedFinalLine);
 static int normalizeTextHeightIfLineIsEmpty(Vector2* measuredText);
 static void setScrollIndexBasedOnMouseWheelMovement(int* oldFileScrollIndex, int* newFileScrollIndex, int* renderedFinalOldFileLine, int* renderedFinalNewFileLine);
 
