@@ -40,9 +40,9 @@ static void addToSeenLines(NumberList* numberList, int line);
 static int lineDoesNotExistInFile(const List* fileLines, const char** lineToFind);
 static int lineDoesNotExistInFileAndHasNotBeenSeen(const List* fileLines, const char** lineToFind, NumberList* seenLines, int line);
 static int seenLine(NumberList* seenLines, int line);
-static void drawLineNumber(int number, int posX, int posY);
-static void renderOldFileLines(const ContentFiles* contentFiles, Font font, int* fileScrollIndex, int* renderedFinalLine);
-static void renderNewFileLines(const ContentFiles* contentFiles, Font font, int* fileScrollIndex, int* renderedFinalLine);
+static void drawLineNumber(Font* font, int number, int posX, int posY);
+static void renderOldFileLines(const ContentFiles* contentFiles, Font* font, int* fileScrollIndex, int* renderedFinalLine);
+static void renderNewFileLines(const ContentFiles* contentFiles, Font* font, int* fileScrollIndex, int* renderedFinalLine);
 static int normalizeTextHeightIfLineIsEmpty(Vector2* measuredText);
 static void setScrollIndexBasedOnMouseWheelMovement(int* oldFileScrollIndex, int* newFileScrollIndex, int* renderedFinalOldFileLine, int* renderedFinalNewFileLine);
 
@@ -191,7 +191,7 @@ static ContentFiles* loadFilesIntoMemory(const char* oldFileBuffer, const char* 
 	return contentFiles;
 }
 
-static void renderOldFileLines(const ContentFiles* contentFiles, Font font, int* fileScrollIndex, int* renderedFinalLine)
+static void renderOldFileLines(const ContentFiles* contentFiles, Font* font, int* fileScrollIndex, int* renderedFinalLine)
 {
 	int posX = MARGIN_X;
 	int posY = MARGIN_Y;
@@ -199,7 +199,7 @@ static void renderOldFileLines(const ContentFiles* contentFiles, Font font, int*
 	for (size_t i = *fileScrollIndex; i < contentFiles->oldFileLinesList.size && posY <= HEIGHT; i++)
 	{
 		size_t lineSize = strlen(contentFiles->oldFileLinesList.list[i]);
-		Vector2 measuredText = MeasureTextEx(font, contentFiles->oldFileLinesList.list[i], FONT_SIZE, 0);
+		Vector2 measuredText = MeasureTextEx(*font, contentFiles->oldFileLinesList.list[i], FONT_SIZE, 0);
 
 		normalizeTextHeightIfLineIsEmpty(&measuredText);
 
@@ -214,19 +214,19 @@ static void renderOldFileLines(const ContentFiles* contentFiles, Font font, int*
 			{
 				char partOfLineBuffer[MAX_RENDERED_LINE_SIZE] = { 0 };
 				size_t partOfLineBufferIdx = 0;
-				Vector2 measuredPartOfLineText = MeasureTextEx(font, partOfLineBuffer, FONT_SIZE, 0);
+				Vector2 measuredPartOfLineText = MeasureTextEx(*font, partOfLineBuffer, FONT_SIZE, 0);
 
 				while (measuredPartOfLineText.x <= FITS_UP_TO_CHARS && lineIdx < lineSize)
 				{
 					partOfLineBuffer[partOfLineBufferIdx++] = contentFiles->oldFileLinesList.list[i][lineIdx++];
-					measuredPartOfLineText = MeasureTextEx(font, partOfLineBuffer, FONT_SIZE, 0);
+					measuredPartOfLineText = MeasureTextEx(*font, partOfLineBuffer, FONT_SIZE, 0);
 				}
 
-				DrawTextEx(font, partOfLineBuffer, (Vector2) { .x = posX + PADDING_FROM_LINE_NUMBER, .y = posY }, FONT_SIZE, 0, WHITE);
+				DrawTextEx(*font, partOfLineBuffer, (Vector2) { .x = posX + PADDING_FROM_LINE_NUMBER, .y = posY }, FONT_SIZE, 0, WHITE);
 
 				if (!alreadyDrawnLineNumber)
 				{
-					drawLineNumber((int)i + 1, posX, posY);
+					drawLineNumber(font, (int)i + 1, posX, posY);
 					alreadyDrawnLineNumber = 1;
 				}
 
@@ -247,16 +247,16 @@ static void renderOldFileLines(const ContentFiles* contentFiles, Font font, int*
 			DrawRectangle(posX, posY, (WIDTH / 2) - MARGIN_X, measuredText.y, (Color) { .a = 50, .r = 200, .g = 0, .b = 0 });
 		}
 
-		drawLineNumber((int)i + 1, posX, posY);
+		drawLineNumber(font, (int)i + 1, posX, posY);
 
-		DrawTextEx(font, contentFiles->oldFileLinesList.list[i], (Vector2) { .x = posX + PADDING_FROM_LINE_NUMBER, .y = posY }, FONT_SIZE, 0, WHITE);
+		DrawTextEx(*font, contentFiles->oldFileLinesList.list[i], (Vector2) { .x = posX + PADDING_FROM_LINE_NUMBER, .y = posY }, FONT_SIZE, 0, WHITE);
 		posY += measuredText.y + MARGIN_Y;
 	}
 
 	*renderedFinalLine = posY < HEIGHT;
 }
 
-static void renderNewFileLines(const ContentFiles* contentFiles, Font font, int* fileScrollIndex, int* renderedFinalLine)
+static void renderNewFileLines(const ContentFiles* contentFiles, Font* font, int* fileScrollIndex, int* renderedFinalLine)
 {
 	int posX = (WIDTH / 2) + MARGIN_X;
 	int posY = MARGIN_Y;
@@ -268,7 +268,7 @@ static void renderNewFileLines(const ContentFiles* contentFiles, Font font, int*
 	for (size_t i = *fileScrollIndex; i < contentFiles->newFileLinesList.size && posY <= HEIGHT; i++)
 	{
 		size_t lineSize = strlen(contentFiles->newFileLinesList.list[i]);
-		Vector2 measuredText = MeasureTextEx(font, contentFiles->newFileLinesList.list[i], FONT_SIZE, 0);
+		Vector2 measuredText = MeasureTextEx(*font, contentFiles->newFileLinesList.list[i], FONT_SIZE, 0);
 
 		normalizeTextHeightIfLineIsEmpty(&measuredText);
 
@@ -283,19 +283,19 @@ static void renderNewFileLines(const ContentFiles* contentFiles, Font font, int*
 			{
 				char partOfLineBuffer[MAX_RENDERED_LINE_SIZE] = { 0 };
 				size_t partOfLineBufferIdx = 0;
-				Vector2 measuredPartOfLineText = MeasureTextEx(font, partOfLineBuffer, FONT_SIZE, 0);
+				Vector2 measuredPartOfLineText = MeasureTextEx(*font, partOfLineBuffer, FONT_SIZE, 0);
 
 				while (measuredPartOfLineText.x <= FITS_UP_TO_CHARS && lineIdx < lineSize)
 				{
 					partOfLineBuffer[partOfLineBufferIdx++] = contentFiles->newFileLinesList.list[i][lineIdx++];
-					measuredPartOfLineText = MeasureTextEx(font, partOfLineBuffer, FONT_SIZE, 0);
+					measuredPartOfLineText = MeasureTextEx(*font, partOfLineBuffer, FONT_SIZE, 0);
 				}
 
-				DrawTextEx(font, partOfLineBuffer, (Vector2) { .x = posX + PADDING_FROM_LINE_NUMBER, .y = posY }, FONT_SIZE, 0, WHITE);
+				DrawTextEx(*font, partOfLineBuffer, (Vector2) { .x = posX + PADDING_FROM_LINE_NUMBER, .y = posY }, FONT_SIZE, 0, WHITE);
 
 				if (!alreadyDrawnLineNumber)
 				{
-					drawLineNumber((int)i + 1, posX, posY);
+					drawLineNumber(font, (int)i + 1, posX, posY);
 					alreadyDrawnLineNumber = 1;
 				}
 
@@ -311,14 +311,14 @@ static void renderNewFileLines(const ContentFiles* contentFiles, Font font, int*
 			continue;
 		}
 
-		drawLineNumber((int)i + 1, posX, posY);
+		drawLineNumber(font, (int)i + 1, posX, posY);
 
 		if (lineDoesNotExistInFileAndHasNotBeenSeen(&contentFiles->oldFileLinesList, &contentFiles->newFileLinesList.list[i], &seenLines, i + 1))
 		{
 			DrawRectangle(posX, posY, (WIDTH / 2) - MARGIN_X, measuredText.y, (Color) { .a = 50, .r = 0, .g = 200, .b = 0 });
 		}
 
-		DrawTextEx(font, contentFiles->newFileLinesList.list[i], (Vector2) { .x = posX + PADDING_FROM_LINE_NUMBER, .y = posY }, FONT_SIZE, 0, WHITE);
+		DrawTextEx(*font, contentFiles->newFileLinesList.list[i], (Vector2) { .x = posX + PADDING_FROM_LINE_NUMBER, .y = posY }, FONT_SIZE, 0, WHITE);
 		posY += measuredText.y + MARGIN_Y;
 	}
 
@@ -326,11 +326,11 @@ static void renderNewFileLines(const ContentFiles* contentFiles, Font font, int*
 	*renderedFinalLine = posY < HEIGHT;
 }
 
-static void drawLineNumber(int number, int posX, int posY)
+static void drawLineNumber(Font* font, int number, int posX, int posY)
 {
 	char lineNumber[6] = { 0 };
 	sprintf_s(lineNumber, 6, "%d", number);
-	DrawText(lineNumber, posX, posY, FONT_SIZE, (Color) { .a = 255, .r = 50, .g = 50, .b = 50 });
+	DrawTextEx(*font, lineNumber, (Vector2) { .x = posX, .y = posY }, FONT_SIZE, 0, (Color) { .a = 255, .r = 50, .g = 50, .b = 50 });
 }
 
 static int lineDoesNotExistInFile(const List* fileLines, const char** lineToFind)
@@ -442,8 +442,8 @@ int main(void)
 
 		DrawLine(WIDTH / 2, 0, WIDTH / 2, HEIGHT, WHITE);
 
-		renderOldFileLines(contentFiles, robotoMonoFont, &oldFileScrollIndex, &renderedFinalOldFileLine);
-		renderNewFileLines(contentFiles, robotoMonoFont, &newFileScrollIndex, &renderedFinalNewFileLine);
+		renderOldFileLines(contentFiles, &robotoMonoFont, &oldFileScrollIndex, &renderedFinalOldFileLine);
+		renderNewFileLines(contentFiles, &robotoMonoFont, &newFileScrollIndex, &renderedFinalNewFileLine);
 
 		setScrollIndexBasedOnMouseWheelMovement(&oldFileScrollIndex, &newFileScrollIndex, &renderedFinalOldFileLine, &renderedFinalNewFileLine);
 
