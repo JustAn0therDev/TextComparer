@@ -399,21 +399,13 @@ MSBuild_Logs/
 healthchecksdb
 
 # Backup folder for Package Reference Convert tool in Visual Studio 2017
-MigrationBackup/
+MigrationBackups/
 
 # Ionide (cross platform F# VS Code tools) working folder
 **/.ionide/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
-
-# VS Code files for those working on multiple tools
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
-!.vscode/*.code-snippets
 
 # Local History for Visual Studio Code
 .history/
