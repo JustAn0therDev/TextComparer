@@ -9,11 +9,6 @@ typedef struct list {
 	size_t size;
 } List;
 
-typedef struct number_list {
-	size_t* list;
-	size_t size;
-} NumberList;
-
 typedef struct content_files {
 	List oldFileLinesList;
 	List newFileLinesList;
@@ -24,7 +19,7 @@ typedef struct content_files {
 #define FONT_SIZE 20
 #define MARGIN_X 5
 #define MARGIN_Y 5
-#define PADDING_FROM_LINE_NUMBER MARGIN_X * 6
+#define PADDING_FROM_LINE_NUMBER MARGIN_X * 10
 #define FITS_UP_TO_CHARS (WIDTH / 2) - (MARGIN_Y * 2) - PADDING_FROM_LINE_NUMBER
 #define MAX_RENDERED_LINE_SIZE 2048
 #ifdef _DEBUG
@@ -32,19 +27,22 @@ typedef struct content_files {
 #define SECONDARY_MONITOR_ID 1
 #endif
 #define LINE_DELIMETER '\n'
+#define SCROLL_THICKNESS WIDTH * 0.01
+#define SCROLL_HEIGHT HEIGHT * 0.2
+#define SCROLL_BY_LINES 10
+#define MAX_RENDERABLE_LINES (int)ceil((double)HEIGHT / (FONT_SIZE + MARGIN_Y))
 
 static char* readFileToBuffer(const char* filePath, size_t* readFileSize);
 static List loadLinesIntoList(char* fileContentBuffer, char** fileLines);
 static ContentFiles* loadFilesIntoMemory(const char* oldFileBuffer, const char* newFileBuffer, const size_t oldFileSizeInBytes, const size_t newFileSizeInBytes);
-static void addToSeenLines(NumberList* numberList, int line);
-static int lineDoesNotExistInFile(const List* fileLines, const char** lineToFind);
-static int lineDoesNotExistInFileAndHasNotBeenSeen(const List* fileLines, const char** lineToFind, NumberList* seenLines, int line);
-static int seenLine(NumberList* seenLines, int line);
+static int lineInFileIsDifferent(const List* fileLines, size_t lineIndex, const char** lineToFind);
 static void drawLineNumber(const Font* font, int number, int posX, int posY);
 static void renderOldFileLines(const ContentFiles* contentFiles, const Font* font, int* fileScrollIndex, int* renderedFinalLine);
 static void renderNewFileLines(const ContentFiles* contentFiles, const Font* font, int* fileScrollIndex, int* renderedFinalLine);
 static int normalizeTextHeightIfLineIsEmpty(Vector2* measuredText);
 static void setScrollIndexBasedOnMouseWheelMovement(int* oldFileScrollIndex, int* newFileScrollIndex, int* renderedFinalOldFileLine, int* renderedFinalNewFileLine);
+static int getNumberOfLinesThatWillBeRendered(const List* fileLines, const Font* font);
+static void drawScroll(const List* fileLines, const Font* font, const size_t fileScrollIndex, const int scrollPosX, const int posY);
 
 static char* readFileToBuffer(const char* filePath, size_t* readFileSize)
 {
@@ -178,7 +176,7 @@ static ContentFiles* loadFilesIntoMemory(const char* oldFileBuffer, const char* 
 	free(newFileBufferCpyPtr);
 
 	ContentFiles* contentFiles = malloc(sizeof(ContentFiles));
-	
+
 	if (contentFiles == NULL)
 	{
 		puts("Unable to allocate memory for content files struct.");
@@ -196,7 +194,9 @@ static void renderOldFileLines(const ContentFiles* contentFiles, Font* font, int
 	int posX = MARGIN_X;
 	int posY = MARGIN_Y;
 
-	for (size_t i = *fileScrollIndex; i < contentFiles->oldFileLinesList.size && posY <= HEIGHT; i++)
+	const int upToLines = (size_t)(*fileScrollIndex) + MAX_RENDERABLE_LINES;
+
+	for (size_t i = *fileScrollIndex; i < contentFiles->oldFileLinesList.size && i < upToLines; i++)
 	{
 		size_t lineSize = strlen(contentFiles->oldFileLinesList.list[i]);
 		Vector2 measuredText = MeasureTextEx(*font, contentFiles->oldFileLinesList.list[i], FONT_SIZE, 0);
@@ -234,7 +234,7 @@ static void renderOldFileLines(const ContentFiles* contentFiles, Font* font, int
 				renderedLines++;
 			}
 
-			if (lineDoesNotExistInFile(&contentFiles->newFileLinesList, &contentFiles->oldFileLinesList.list[i]))
+			if (lineInFileIsDifferent(&contentFiles->newFileLinesList, i, &contentFiles->oldFileLinesList.list[i]))
 			{
 				DrawRectangle(posX, originalPosY, (WIDTH / 2) - MARGIN_X, ((measuredText.y + MARGIN_Y) * renderedLines), (Color) { .a = 50, .r = 200, .g = 0, .b = 0 });
 			}
@@ -242,7 +242,7 @@ static void renderOldFileLines(const ContentFiles* contentFiles, Font* font, int
 			continue;
 		}
 
-		if (lineDoesNotExistInFile(&contentFiles->newFileLinesList, &contentFiles->oldFileLinesList.list[i]))
+		if (lineInFileIsDifferent(&contentFiles->newFileLinesList, i, &contentFiles->oldFileLinesList.list[i]))
 		{
 			DrawRectangle(posX, posY, (WIDTH / 2) - MARGIN_X, measuredText.y, (Color) { .a = 50, .r = 200, .g = 0, .b = 0 });
 		}
@@ -253,6 +253,8 @@ static void renderOldFileLines(const ContentFiles* contentFiles, Font* font, int
 		posY += measuredText.y + MARGIN_Y;
 	}
 
+	drawScroll(&contentFiles->oldFileLinesList, font, *fileScrollIndex, (WIDTH / 2) - SCROLL_THICKNESS, posY);
+
 	*renderedFinalLine = posY < HEIGHT;
 }
 
@@ -260,12 +262,9 @@ static void renderNewFileLines(const ContentFiles* contentFiles, Font* font, int
 {
 	int posX = (WIDTH / 2) + MARGIN_X;
 	int posY = MARGIN_Y;
+	const int upToLines = (size_t)(*fileScrollIndex) + MAX_RENDERABLE_LINES;
 
-	NumberList seenLines;
-	seenLines.list = calloc(1, sizeof(size_t));
-	seenLines.size = 1;
-
-	for (size_t i = *fileScrollIndex; i < contentFiles->newFileLinesList.size && posY <= HEIGHT; i++)
+	for (size_t i = *fileScrollIndex; i < contentFiles->newFileLinesList.size && i < upToLines; i++)
 	{
 		size_t lineSize = strlen(contentFiles->newFileLinesList.list[i]);
 		Vector2 measuredText = MeasureTextEx(*font, contentFiles->newFileLinesList.list[i], FONT_SIZE, 0);
@@ -303,7 +302,7 @@ static void renderNewFileLines(const ContentFiles* contentFiles, Font* font, int
 				renderedLines++;
 			}
 
-			if (lineDoesNotExistInFileAndHasNotBeenSeen(&contentFiles->oldFileLinesList, &contentFiles->newFileLinesList.list[i], &seenLines, i + 1))
+			if (lineInFileIsDifferent(&contentFiles->oldFileLinesList, i, &contentFiles->newFileLinesList.list[i]))
 			{
 				DrawRectangle(posX, originalPosY, (WIDTH / 2) - MARGIN_X, (FONT_SIZE * renderedLines) + MARGIN_Y, (Color) { .a = 50, .r = 0, .g = 200, .b = 0 });
 			}
@@ -313,7 +312,7 @@ static void renderNewFileLines(const ContentFiles* contentFiles, Font* font, int
 
 		drawLineNumber(font, (int)i + 1, posX, posY);
 
-		if (lineDoesNotExistInFileAndHasNotBeenSeen(&contentFiles->oldFileLinesList, &contentFiles->newFileLinesList.list[i], &seenLines, i + 1))
+		if (lineInFileIsDifferent(&contentFiles->oldFileLinesList, i, &contentFiles->newFileLinesList.list[i]))
 		{
 			DrawRectangle(posX, posY, (WIDTH / 2) - MARGIN_X, measuredText.y, (Color) { .a = 50, .r = 0, .g = 200, .b = 0 });
 		}
@@ -321,8 +320,9 @@ static void renderNewFileLines(const ContentFiles* contentFiles, Font* font, int
 		DrawTextEx(*font, contentFiles->newFileLinesList.list[i], (Vector2) { .x = posX + PADDING_FROM_LINE_NUMBER, .y = posY }, FONT_SIZE, 0, WHITE);
 		posY += measuredText.y + MARGIN_Y;
 	}
+	
+	drawScroll(&contentFiles->newFileLinesList, font, *fileScrollIndex, WIDTH - SCROLL_THICKNESS, posY);
 
-	free(seenLines.list);
 	*renderedFinalLine = posY < HEIGHT;
 }
 
@@ -333,49 +333,9 @@ static void drawLineNumber(Font* font, int number, int posX, int posY)
 	DrawTextEx(*font, lineNumber, (Vector2) { .x = posX, .y = posY }, FONT_SIZE, 0, (Color) { .a = 255, .r = 50, .g = 50, .b = 50 });
 }
 
-static int lineDoesNotExistInFile(const List* fileLines, const char** lineToFind)
+static int lineInFileIsDifferent(const List* fileLines, size_t lineIndex, const char** lineToFind)
 {
-	for (size_t i = 0; i < fileLines->size; i++)
-	{
-		if (strcmp(fileLines->list[i], *lineToFind) == 0 || (strlen(fileLines->list[i]) == 0 && strlen(*lineToFind) == 0))
-		{
-			return 0;
-		}
-	}
-	return 1;
-}
-
-static int lineDoesNotExistInFileAndHasNotBeenSeen(const List* fileLines, const char** lineToFind, NumberList* seenLines, int line)
-{
-	for (size_t i = 0; i < fileLines->size; i++)
-	{
-		if (strcmp(fileLines->list[i], *lineToFind) == 0 && !seenLine(seenLines, i + 1) || (strlen(fileLines->list[i]) == 0 && strlen(*lineToFind) == 0))
-		{
-			addToSeenLines(seenLines, (int)i + 1);
-			return 0;
-		}
-	}
-	return 1;
-}
-
-static int seenLine(NumberList* seenLines, int line)
-{
-	for (size_t i = 0; i < seenLines->size; i++)
-	{
-		if (seenLines->list[i] == line)
-		{
-			return 1;
-		}
-	}
-
-	return 0;
-}
-
-static void addToSeenLines(NumberList* numberList, int line)
-{
-	numberList->list[numberList->size - 1] = line;
-	size_t* reallocated = realloc(numberList->list, sizeof(size_t) * ++numberList->size);
-	numberList->list = reallocated;
+	return fileLines->size <= lineIndex || strcmp(fileLines->list[lineIndex], *lineToFind) != 0;
 }
 
 static int normalizeTextHeightIfLineIsEmpty(Vector2* measuredText)
@@ -396,19 +356,50 @@ static void setScrollIndexBasedOnMouseWheelMovement(int* oldFileScrollIndex, int
 
 	if (mouseInOldFileWindow) {
 		if (mouseWheelMovement < 0 && !(*renderedFinalOldFileLine)) {
-			(*oldFileScrollIndex)++;
+			(*oldFileScrollIndex) += SCROLL_BY_LINES;
 		}
 		else if (mouseWheelMovement > 0) {
-			*oldFileScrollIndex = *oldFileScrollIndex == 0 ? 0 : *oldFileScrollIndex - 1;
+			*oldFileScrollIndex = *oldFileScrollIndex == 0 ? 0 : *oldFileScrollIndex - SCROLL_BY_LINES;
 		}
 	}
 	else if (mouseInNewFileWindow) {
 		if (mouseWheelMovement < 0 && !(*renderedFinalNewFileLine)) {
-			(*newFileScrollIndex)++;
+			(*newFileScrollIndex) += SCROLL_BY_LINES;
 		}
 		else if (mouseWheelMovement > 0) {
-			*newFileScrollIndex = *newFileScrollIndex == 0 ? 0 : *newFileScrollIndex - 1;
+			*newFileScrollIndex = *newFileScrollIndex == 0 ? 0 : *newFileScrollIndex - SCROLL_BY_LINES;
 		}
+	}
+}
+
+static int getNumberOfLinesThatWillBeRendered(const List* fileLines, const Font* font)
+{
+	int lines = 0;
+
+	for (size_t i = 0; i < fileLines->size; i++)
+	{
+		size_t measuredText = MeasureTextEx(*font, fileLines->list[i], FONT_SIZE, 0).x;;
+		if (measuredText > FITS_UP_TO_CHARS)
+		{
+			lines += ceil((double)(measuredText / (FITS_UP_TO_CHARS)));
+		}
+		else
+		{
+			++lines;
+		}
+	}
+
+	return lines;
+}
+
+static void drawScroll(const List* fileLines, const Font* font, const size_t fileScrollIndex, const int scrollPosX, const int posY)
+{
+	const float totalLines = getNumberOfLinesThatWillBeRendered(fileLines, font);
+
+	if (totalLines > MAX_RENDERABLE_LINES)
+	{
+		const int scrollPosY = posY < HEIGHT ? HEIGHT - SCROLL_HEIGHT : fileScrollIndex * ((HEIGHT - SCROLL_HEIGHT) / totalLines);
+		DrawRectangle(scrollPosX, scrollPosY, SCROLL_THICKNESS, SCROLL_HEIGHT, (Color) { .r = 100, .g = 100, .b = 100, .a = 100 });
 	}
 }
 
@@ -419,6 +410,12 @@ int main(void)
 #ifdef _DEBUG
 	SetWindowMonitor(SECONDARY_MONITOR_ID);
 #endif
+
+	// NOTES: 
+	// There is absolutely NO need for a text comparer to run at higher frames
+	// than 30. So this will be the default for the program, it does the same thing
+	// using much, much less resources.
+	SetTargetFPS(30);
 
 	Font robotoMonoFont = LoadFont("resources/RobotoMono-VariableFont_wght.ttf");
 
