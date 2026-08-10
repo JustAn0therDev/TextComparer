@@ -30,6 +30,7 @@ typedef struct content_files {
 #define SCROLL_THICKNESS WIDTH * 0.01
 #define SCROLL_HEIGHT HEIGHT * 0.2
 #define SCROLL_BY_LINES 10
+#define MAX_RENDERABLE_LINES (int)ceil((double)HEIGHT / (FONT_SIZE + MARGIN_Y))
 
 static char* readFileToBuffer(const char* filePath, size_t* readFileSize);
 static List loadLinesIntoList(char* fileContentBuffer, char** fileLines);
@@ -41,6 +42,7 @@ static void renderNewFileLines(const ContentFiles* contentFiles, const Font* fon
 static int normalizeTextHeightIfLineIsEmpty(Vector2* measuredText);
 static void setScrollIndexBasedOnMouseWheelMovement(int* oldFileScrollIndex, int* newFileScrollIndex, int* renderedFinalOldFileLine, int* renderedFinalNewFileLine);
 static int getNumberOfLinesThatWillBeRendered(const List* fileLines, const Font* font);
+static void drawScroll(const List* fileLines, const Font* font, const size_t fileScrollIndex, const int scrollPosX, const int posY);
 
 static char* readFileToBuffer(const char* filePath, size_t* readFileSize)
 {
@@ -192,7 +194,9 @@ static void renderOldFileLines(const ContentFiles* contentFiles, Font* font, int
 	int posX = MARGIN_X;
 	int posY = MARGIN_Y;
 
-	for (size_t i = *fileScrollIndex; i < contentFiles->oldFileLinesList.size && posY <= HEIGHT; i++)
+	const int upToLines = (size_t)(*fileScrollIndex) + MAX_RENDERABLE_LINES;
+
+	for (size_t i = *fileScrollIndex; i < contentFiles->oldFileLinesList.size && i < upToLines; i++)
 	{
 		size_t lineSize = strlen(contentFiles->oldFileLinesList.list[i]);
 		Vector2 measuredText = MeasureTextEx(*font, contentFiles->oldFileLinesList.list[i], FONT_SIZE, 0);
@@ -249,15 +253,7 @@ static void renderOldFileLines(const ContentFiles* contentFiles, Font* font, int
 		posY += measuredText.y + MARGIN_Y;
 	}
 
-	// Draw scroll
-	const int maxRenderableLines = (int)(HEIGHT / (FONT_SIZE + MARGIN_Y));
-	float totalLines = getNumberOfLinesThatWillBeRendered(&contentFiles->oldFileLinesList.list, font);
-
-	if (totalLines > maxRenderableLines)
-	{
-		int scrollPosY = posY < HEIGHT ? HEIGHT - SCROLL_HEIGHT : (*fileScrollIndex) * ((HEIGHT - SCROLL_HEIGHT) / totalLines);
-		DrawRectangle((WIDTH / 2) - SCROLL_THICKNESS, scrollPosY, SCROLL_THICKNESS, SCROLL_HEIGHT, (Color) { .r = 100, .g = 100, .b = 100, .a = 100 });
-	}
+	drawScroll(&contentFiles->oldFileLinesList, font, *fileScrollIndex, (WIDTH / 2) - SCROLL_THICKNESS, posY);
 
 	*renderedFinalLine = posY < HEIGHT;
 }
@@ -266,8 +262,9 @@ static void renderNewFileLines(const ContentFiles* contentFiles, Font* font, int
 {
 	int posX = (WIDTH / 2) + MARGIN_X;
 	int posY = MARGIN_Y;
+	const int upToLines = (size_t)(*fileScrollIndex) + MAX_RENDERABLE_LINES;
 
-	for (size_t i = *fileScrollIndex; i < contentFiles->newFileLinesList.size && posY <= HEIGHT; i++)
+	for (size_t i = *fileScrollIndex; i < contentFiles->newFileLinesList.size && i < upToLines; i++)
 	{
 		size_t lineSize = strlen(contentFiles->newFileLinesList.list[i]);
 		Vector2 measuredText = MeasureTextEx(*font, contentFiles->newFileLinesList.list[i], FONT_SIZE, 0);
@@ -323,16 +320,8 @@ static void renderNewFileLines(const ContentFiles* contentFiles, Font* font, int
 		DrawTextEx(*font, contentFiles->newFileLinesList.list[i], (Vector2) { .x = posX + PADDING_FROM_LINE_NUMBER, .y = posY }, FONT_SIZE, 0, WHITE);
 		posY += measuredText.y + MARGIN_Y;
 	}
-
-	// Draw scroll
-	const int maxRenderableLines = (int)(HEIGHT / (FONT_SIZE + MARGIN_Y));
-	float totalLines = getNumberOfLinesThatWillBeRendered(&contentFiles->newFileLinesList.list, font);
-
-	if (totalLines > maxRenderableLines)
-	{
-		int scrollPosY = posY < HEIGHT ? HEIGHT - SCROLL_HEIGHT : (*fileScrollIndex) * ((HEIGHT - SCROLL_HEIGHT) / totalLines);
-		DrawRectangle(WIDTH - SCROLL_THICKNESS, scrollPosY, SCROLL_THICKNESS, SCROLL_HEIGHT, (Color) { .r = 100, .g = 100, .b = 100, .a = 100 });
-	}
+	
+	drawScroll(&contentFiles->newFileLinesList, font, *fileScrollIndex, WIDTH - SCROLL_THICKNESS, posY);
 
 	*renderedFinalLine = posY < HEIGHT;
 }
@@ -403,6 +392,17 @@ static int getNumberOfLinesThatWillBeRendered(const List* fileLines, const Font*
 	return lines;
 }
 
+static void drawScroll(const List* fileLines, const Font* font, const size_t fileScrollIndex, const int scrollPosX, const int posY)
+{
+	const float totalLines = getNumberOfLinesThatWillBeRendered(fileLines, font);
+
+	if (totalLines > MAX_RENDERABLE_LINES)
+	{
+		const int scrollPosY = posY < HEIGHT ? HEIGHT - SCROLL_HEIGHT : fileScrollIndex * ((HEIGHT - SCROLL_HEIGHT) / totalLines);
+		DrawRectangle(scrollPosX, scrollPosY, SCROLL_THICKNESS, SCROLL_HEIGHT, (Color) { .r = 100, .g = 100, .b = 100, .a = 100 });
+	}
+}
+
 int main(void)
 {
 	InitWindow(WIDTH, HEIGHT, "TextComparer");
@@ -410,6 +410,12 @@ int main(void)
 #ifdef _DEBUG
 	SetWindowMonitor(SECONDARY_MONITOR_ID);
 #endif
+
+	// NOTES: 
+	// There is absolutely NO need for a text comparer to run at higher frames
+	// than 30. So this will be the default for the program, it does the same thing
+	// using much, much less resources.
+	SetTargetFPS(30);
 
 	Font robotoMonoFont = LoadFont("resources/RobotoMono-VariableFont_wght.ttf");
 
@@ -426,26 +432,10 @@ int main(void)
 	int renderedFinalOldFileLine = 0;
 	int renderedFinalNewFileLine = 0;
 
-#ifdef _DEBUG
-	int toggleFps = 0;
-#endif
-
 	while (!WindowShouldClose())
 	{
 		BeginDrawing();
 		ClearBackground(BLACK);
-
-#ifdef _DEBUG
-		if (IsKeyReleased(KEY_F1))
-		{
-			toggleFps = !toggleFps;
-		}
-
-		if (toggleFps)
-		{
-			DrawFPS(0, 0);
-		}
-#endif
 
 		DrawLine(WIDTH / 2, 0, WIDTH / 2, HEIGHT, WHITE);
 
