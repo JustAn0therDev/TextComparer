@@ -19,7 +19,6 @@ typedef struct content_files {
 	List newFileLinesList;
 } ContentFiles;
 
-// TODO: Rewrite the calculations to be all consts, since it expands. It is wasting CPU time.
 #define WIDTH 1280
 #define HEIGHT 720
 #define FONT_SIZE 20
