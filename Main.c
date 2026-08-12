@@ -485,7 +485,7 @@ int main(void)
 	// There is absolutely NO need for a text comparer to run at higher frames
 	// than 30. So this will be the default for the program, it does the same thing
 	// using much, much less resources.
-	//SetTargetFPS(30);
+	SetTargetFPS(30);
 
 	Font robotoMonoFont = LoadFont("resources/RobotoMono-VariableFont_wght.ttf");
 
