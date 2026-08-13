@@ -243,18 +243,18 @@ static void renderOldFileLines(const ContentFiles* contentFiles, const float tot
 
 			if (numberListContains(oldFileLinesToHighlight, i))
 			{
-				DrawRectangle(posX, originalPosY, (WIDTH / 2) - MARGIN_X, (LINE_HEIGHT * renderedLines), (Color) { .a = 50, .r = 200, .g = 0, .b = 0 });
+				DrawRectangle(posX, originalPosY, (WIDTH / 2) - MARGIN_X, (LINE_HEIGHT) * renderedLines, (Color) { .a = 50, .r = 200, .g = 0, .b = 0 });
 			}
 
 			continue;
 		}
 
+		drawLineNumber(font, (int)i + 1, posX, posY);
+
 		if (numberListContains(oldFileLinesToHighlight, i))
 		{
-			DrawRectangle(posX, posY, (WIDTH / 2) - MARGIN_X, FONT_SIZE, (Color) { .a = 50, .r = 200, .g = 0, .b = 0 });
+			DrawRectangle(posX, posY, (WIDTH / 2) - MARGIN_X, LINE_HEIGHT, (Color) { .a = 50, .r = 200, .g = 0, .b = 0 });
 		}
-
-		drawLineNumber(font, (int)i + 1, posX, posY);
 
 		DrawTextEx(*font, contentFiles->oldFileLinesList.list[i], (Vector2) { .x = posX + PADDING_FROM_LINE_NUMBER, .y = posY }, FONT_SIZE, 0, WHITE);
 		posY += LINE_HEIGHT;
@@ -306,7 +306,7 @@ static void renderNewFileLines(const ContentFiles* contentFiles, const float tot
 
 			if (numberListContains(newFileLinesToHighlight, i))
 			{
-				DrawRectangle(posX, originalPosY, (WIDTH / 2) - MARGIN_X, (FONT_SIZE * renderedLines) + MARGIN_Y, (Color) { .a = 50, .r = 0, .g = 200, .b = 0 });
+				DrawRectangle(posX, originalPosY, (WIDTH / 2) - MARGIN_X, (LINE_HEIGHT) * renderedLines, (Color) { .a = 50, .r = 0, .g = 200, .b = 0 });
 			}
 
 			continue;
@@ -316,7 +316,7 @@ static void renderNewFileLines(const ContentFiles* contentFiles, const float tot
 
 		if (numberListContains(newFileLinesToHighlight, i))
 		{
-			DrawRectangle(posX, posY, (WIDTH / 2) - MARGIN_X, FONT_SIZE, (Color) { .a = 50, .r = 0, .g = 200, .b = 0 });
+			DrawRectangle(posX, posY, (WIDTH / 2) - MARGIN_X, LINE_HEIGHT, (Color) { .a = 50, .r = 0, .g = 200, .b = 0 });
 		}
 
 		DrawTextEx(*font, contentFiles->newFileLinesList.list[i], (Vector2) { .x = posX + PADDING_FROM_LINE_NUMBER, .y = posY }, FONT_SIZE, 0, WHITE);
@@ -484,7 +484,7 @@ int main(void)
 	// There is absolutely NO need for a text comparer to run at higher frames
 	// than 30. So this will be the default for the program, it does the same thing
 	// using much, much less resources.
-	SetTargetFPS(30);
+	//SetTargetFPS(30);
 
 	Font robotoMonoFont = LoadFont("resources/RobotoMono-VariableFont_wght.ttf");
 
