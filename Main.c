@@ -383,7 +383,7 @@ static int getNumberOfLinesThatWillBeRendered(const List* fileLines, const Font*
 		size_t lineSize = strlen(fileLines->list[i]);
 		if (lineSize > MAX_BUFFER_FIT)
 		{
-			lines += ceil((double)(MAX_BUFFER_FIT / (FITS_UP_TO_CHARS)));
+			lines += ceil((double)(lineSize / (MAX_BUFFER_FIT)));
 		}
 		else
 		{
