@@ -63,7 +63,8 @@ static char* readFileToBuffer(const char* filePath, size_t* readFileSize)
 	*readFileSize = ftell(file);
 	rewind(file);
 	char* fileBuffer = calloc((*readFileSize) + 1, sizeof(char));
-	if (fileBuffer == 0) {
+	if (fileBuffer == 0)
+	{
 		puts("Unable to allocate memory for old file buffer");
 		exit(1);
 	}
@@ -107,13 +108,14 @@ static List loadLinesIntoList(char* fileContentBuffer, char** fileLines)
 			strcpy_s(*(fileLines + fileLinesIdx), stringSize + 1, fileLineBuffer);
 			fileLinesIdx++;
 
-			char** reallocatedOldFileLines = realloc(fileLines, sizeof(char*) * (fileLinesIdx + 1));
-			if (reallocatedOldFileLines == NULL)
+			char** reallocatedFileLines = realloc(fileLines, sizeof(char*) * (fileLinesIdx + 1));
+
+			if (reallocatedFileLines == NULL)
 			{
-				puts("Unable to allocate memory for the old file.");
+				puts("Unable to allocate memory for file.");
 				exit(1);
 			}
-			fileLines = reallocatedOldFileLines;
+			fileLines = reallocatedFileLines;
 
 			free(fileLineBuffer);
 			fileLineBufferIdx = 0;
@@ -135,13 +137,13 @@ static List loadLinesIntoList(char* fileContentBuffer, char** fileLines)
 			exit(1);
 		}
 		*nextPtrInLineBuffer = *fileContentBuffer;
-		char* oldFileBufferLineReallocated = realloc(fileLineBuffer, fileLineBufferIdx + 1);
-		if (oldFileBufferLineReallocated == NULL)
+		char* fileBufferLineReallocated = realloc(fileLineBuffer, fileLineBufferIdx + 1);
+		if (fileBufferLineReallocated == NULL)
 		{
-			puts("Unable to allocate memory for the old file buffer line.");
+			puts("Unable to allocate memory for file buffer line.");
 			exit(1);
 		}
-		fileLineBuffer = oldFileBufferLineReallocated;
+		fileLineBuffer = fileBufferLineReallocated;
 		fileContentBuffer++;
 	}
 
@@ -456,7 +458,7 @@ static void findChangedLinesInNewFile(NumberList* numberList, const ContentFiles
 static void addToNumberList(NumberList* numberList, int index)
 {
 	numberList->list[numberList->size] = index;
-	int** reallocated = realloc(numberList->list, sizeof(size_t) * ++numberList->size);
+	int* reallocated = realloc(numberList->list, sizeof(size_t) * ++numberList->size);
 	if (reallocated == 0) exit(1);
 
 	numberList->list = reallocated;
