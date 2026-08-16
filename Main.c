@@ -499,7 +499,7 @@ int main(void)
 	char* newFileBuffer = 0;
 	size_t newFileSizeInBytes = 0;
 
-#ifndef _DEBUG
+#ifdef _DEBUG
 	oldFileBuffer = readFileToBuffer("resources/old_file.txt", &oldFileSizeInBytes);
 	newFileBuffer = readFileToBuffer("resources/new_file.txt", &newFileSizeInBytes);
 #endif
@@ -553,7 +553,7 @@ int main(void)
 				{
 					if (filePaths[offset + i] != NULL) continue;
 
-					filePaths[offset + i] = calloc(strlen(droppedFiles.paths[i]), sizeof(char));
+					filePaths[offset + i] = calloc(strlen(droppedFiles.paths[i]) + 1, sizeof(char));
 
 					if (filePaths[offset + i] == NULL)
 					{ 
@@ -620,13 +620,25 @@ int main(void)
 	// cleanup
 	UnloadFont(robotoMonoFont);
 
-	if (oldFileBuffer != 0)
+	if (oldFileBuffer != NULL)
+	{
+		if (filePaths[0] != NULL)
+		{
+			free(filePaths[0]);
+		}
 		free(oldFileBuffer);
+	}
 
-	if (newFileBuffer != 0)
+	if (newFileBuffer != NULL)
+	{
+		if (filePaths[1] != NULL)
+		{
+			free(filePaths[1]);
+		}
 		free(newFileBuffer);
+	}
 
-	if (contentFiles != 0)
+	if (contentFiles != NULL)
 	{
 		for (size_t i = 0; i < contentFiles->oldFileLinesList.size; i++)
 		{
