@@ -39,6 +39,7 @@ typedef struct content_files {
 #define MAX_RENDERABLE_LINES (int)ceil((double)HEIGHT / (LINE_HEIGHT))
 #define CHAR_SIZE 9
 #define MAX_BUFFER_FIT (FITS_UP_TO_CHARS) / CHAR_SIZE
+#define MAX_FILEPATHS 2
 
 static char* readFileToBuffer(const char* filePath, size_t* readFileSize);
 static List loadLinesIntoList(char* fileContentBuffer, char** fileLines);
@@ -63,7 +64,8 @@ static char* readFileToBuffer(const char* filePath, size_t* readFileSize)
 	*readFileSize = ftell(file);
 	rewind(file);
 	char* fileBuffer = calloc((*readFileSize) + 1, sizeof(char));
-	if (fileBuffer == 0) {
+	if (fileBuffer == 0)
+	{
 		puts("Unable to allocate memory for old file buffer");
 		exit(1);
 	}
@@ -107,13 +109,14 @@ static List loadLinesIntoList(char* fileContentBuffer, char** fileLines)
 			strcpy_s(*(fileLines + fileLinesIdx), stringSize + 1, fileLineBuffer);
 			fileLinesIdx++;
 
-			char** reallocatedOldFileLines = realloc(fileLines, sizeof(char*) * (fileLinesIdx + 1));
-			if (reallocatedOldFileLines == NULL)
+			char** reallocatedFileLines = realloc(fileLines, sizeof(char*) * (fileLinesIdx + 1));
+
+			if (reallocatedFileLines == NULL)
 			{
-				puts("Unable to allocate memory for the old file.");
+				puts("Unable to allocate memory for file.");
 				exit(1);
 			}
-			fileLines = reallocatedOldFileLines;
+			fileLines = reallocatedFileLines;
 
 			free(fileLineBuffer);
 			fileLineBufferIdx = 0;
@@ -135,13 +138,13 @@ static List loadLinesIntoList(char* fileContentBuffer, char** fileLines)
 			exit(1);
 		}
 		*nextPtrInLineBuffer = *fileContentBuffer;
-		char* oldFileBufferLineReallocated = realloc(fileLineBuffer, fileLineBufferIdx + 1);
-		if (oldFileBufferLineReallocated == NULL)
+		char* fileBufferLineReallocated = realloc(fileLineBuffer, fileLineBufferIdx + 1);
+		if (fileBufferLineReallocated == NULL)
 		{
-			puts("Unable to allocate memory for the old file buffer line.");
+			puts("Unable to allocate memory for file buffer line.");
 			exit(1);
 		}
-		fileLineBuffer = oldFileBufferLineReallocated;
+		fileLineBuffer = fileBufferLineReallocated;
 		fileContentBuffer++;
 	}
 
@@ -243,7 +246,7 @@ static void renderOldFileLines(const ContentFiles* contentFiles, const float tot
 
 			if (numberListContains(oldFileLinesToHighlight, i))
 			{
-				DrawRectangle(posX, originalPosY, (WIDTH / 2) - MARGIN_X, (LINE_HEIGHT) * renderedLines, (Color) { .a = 50, .r = 200, .g = 0, .b = 0 });
+				DrawRectangle(posX, originalPosY, (WIDTH / 2) - MARGIN_X, (LINE_HEIGHT)*renderedLines, (Color) { .a = 50, .r = 200, .g = 0, .b = 0 });
 			}
 
 			continue;
@@ -306,7 +309,7 @@ static void renderNewFileLines(const ContentFiles* contentFiles, const float tot
 
 			if (numberListContains(newFileLinesToHighlight, i))
 			{
-				DrawRectangle(posX, originalPosY, (WIDTH / 2) - MARGIN_X, (LINE_HEIGHT) * renderedLines, (Color) { .a = 50, .r = 0, .g = 200, .b = 0 });
+				DrawRectangle(posX, originalPosY, (WIDTH / 2) - MARGIN_X, (LINE_HEIGHT)*renderedLines, (Color) { .a = 50, .r = 0, .g = 200, .b = 0 });
 			}
 
 			continue;
@@ -322,7 +325,7 @@ static void renderNewFileLines(const ContentFiles* contentFiles, const float tot
 		DrawTextEx(*font, contentFiles->newFileLinesList.list[i], (Vector2) { .x = posX + PADDING_FROM_LINE_NUMBER, .y = posY }, FONT_SIZE, 0, WHITE);
 		posY += LINE_HEIGHT;
 	}
-	
+
 	drawScroll(&contentFiles->newFileLinesList, totalLinesToRender, font, *fileScrollIndex, WIDTH - SCROLL_THICKNESS, posY);
 
 	*renderedFinalLine = posY < HEIGHT;
@@ -403,6 +406,8 @@ static void drawScroll(const List* fileLines, const float totalLinesToRender, co
 	}
 }
 
+// The whole comparison will have to be re-done.
+// Today, it doesn't track empty lines and it does not track the same content twice (no memoization).
 static void findChangedLinesInOldFile(NumberList* numberList, const ContentFiles* contentFiles)
 {
 	for (size_t i = 0; i < contentFiles->oldFileLinesList.size; i++)
@@ -413,7 +418,6 @@ static void findChangedLinesInOldFile(NumberList* numberList, const ContentFiles
 		for (size_t j = 0; j < contentFiles->newFileLinesList.size; j++)
 		{
 			char* newFileLine = contentFiles->newFileLinesList.list[j];
-			// TODO: Maybe consider the line number of empty spaces?
 			if (strcmp(oldFileLine, newFileLine) == 0 || (strlen(oldFileLine) == 0 && strlen(newFileLine) == 0))
 			{
 				found = 1;
@@ -438,7 +442,6 @@ static void findChangedLinesInNewFile(NumberList* numberList, const ContentFiles
 		for (size_t j = 0; j < contentFiles->oldFileLinesList.size; j++)
 		{
 			char* oldFileLine = contentFiles->oldFileLinesList.list[j];
-			// TODO: Maybe consider the line number of empty spaces?
 			if (strcmp(oldFileLine, newFileLine) == 0 || (strlen(oldFileLine) == 0 && strlen(newFileLine) == 0))
 			{
 				found = 1;
@@ -456,7 +459,7 @@ static void findChangedLinesInNewFile(NumberList* numberList, const ContentFiles
 static void addToNumberList(NumberList* numberList, int index)
 {
 	numberList->list[numberList->size] = index;
-	int** reallocated = realloc(numberList->list, sizeof(size_t) * ++numberList->size);
+	int* reallocated = realloc(numberList->list, sizeof(size_t) * ++numberList->size);
 	if (reallocated == 0) exit(1);
 
 	numberList->list = reallocated;
@@ -484,37 +487,48 @@ int main(void)
 	// There is absolutely NO need for a text comparer to run at higher frames
 	// than 30. So this will be the default for the program, it does the same thing
 	// using much, much less resources.
-	//SetTargetFPS(30);
+#ifndef _DEBUG
+	SetTargetFPS(30);
+#endif
 
 	Font robotoMonoFont = LoadFont("resources/RobotoMono-VariableFont_wght.ttf");
 
+	char* oldFileBuffer = 0;
 	size_t oldFileSizeInBytes = 0;
-	char* oldFileBuffer = readFileToBuffer("resources/old_file.txt", &oldFileSizeInBytes);
 
+	char* newFileBuffer = 0;
 	size_t newFileSizeInBytes = 0;
-	char* newFileBuffer = readFileToBuffer("resources/new_file.txt", &newFileSizeInBytes);
 
-	ContentFiles* contentFiles = loadFilesIntoMemory(oldFileBuffer, newFileBuffer, oldFileSizeInBytes, newFileSizeInBytes);
+#ifdef _DEBUG
+	oldFileBuffer = readFileToBuffer("resources/old_file.txt", &oldFileSizeInBytes);
+	newFileBuffer = readFileToBuffer("resources/new_file.txt", &newFileSizeInBytes);
+#endif
 
 	int oldFileScrollIndex = 0;
 	int newFileScrollIndex = 0;
 	int renderedFinalOldFileLine = 0;
 	int renderedFinalNewFileLine = 0;
 
+	ContentFiles* contentFiles = NULL;
+
 	NumberList oldFileLinesToHighlight;
 	oldFileLinesToHighlight.list = calloc(1, sizeof(int));
 	oldFileLinesToHighlight.size = 0;
 
-	findChangedLinesInOldFile(&oldFileLinesToHighlight, contentFiles);
-
 	NumberList newFileLinesToHighlight;
 	newFileLinesToHighlight.list = calloc(1, sizeof(int));
 	newFileLinesToHighlight.size = 0;
-	
-	findChangedLinesInNewFile(&newFileLinesToHighlight, contentFiles);
 
-	const float totalOldLinesToRender = getNumberOfLinesThatWillBeRendered(&contentFiles->oldFileLinesList.list, &robotoMonoFont);
-	const float totalNewLinesToRender = getNumberOfLinesThatWillBeRendered(&contentFiles->newFileLinesList.list, &robotoMonoFont);
+	float totalOldLinesToRender = 0;
+	float totalNewLinesToRender = 0;
+
+	const char* dragFileMessage = "Drag a file here to compare it";
+	const char* fileLoadedMessage = "File loaded!";
+	Vector2 dragFileMessageSize = MeasureTextEx(robotoMonoFont, dragFileMessage, FONT_SIZE, 0);
+	Vector2 fileLoadedMessageSize = MeasureTextEx(robotoMonoFont, fileLoadedMessage, FONT_SIZE, 0);
+
+	int filePathCounter = 0;
+	char* filePaths[MAX_FILEPATHS] = {0};
 
 	while (!WindowShouldClose())
 	{
@@ -522,12 +536,83 @@ int main(void)
 		ClearBackground(BLACK);
 
 		DrawLine(WIDTH / 2, 0, WIDTH / 2, HEIGHT, WHITE);
+
+		size_t width = WIDTH / 4;
+
+#ifdef _DEBUG
 		DrawFPS(0, 0);
+#endif
 
-		renderOldFileLines(contentFiles, totalOldLinesToRender, &oldFileLinesToHighlight, &robotoMonoFont, &oldFileScrollIndex, &renderedFinalOldFileLine);
-		renderNewFileLines(contentFiles, totalNewLinesToRender, &newFileLinesToHighlight, &robotoMonoFont, &newFileScrollIndex, &renderedFinalNewFileLine);
+		if (IsFileDropped())
+		{
+			FilePathList droppedFiles = LoadDroppedFiles();
 
-		setScrollIndexBasedOnMouseWheelMovement(&oldFileScrollIndex, &newFileScrollIndex, &renderedFinalOldFileLine, &renderedFinalNewFileLine);
+			for (int i = 0, offset = filePathCounter; i < (int)droppedFiles.count; i++)
+			{
+				if (filePathCounter < 2)
+				{
+					if (filePaths[offset + i] != NULL) continue;
+
+					filePaths[offset + i] = calloc(strlen(droppedFiles.paths[i]) + 1, sizeof(char));
+
+					if (filePaths[offset + i] == NULL)
+					{ 
+						puts("Unable to allocate memory for file path.");
+						exit(1);
+					}
+
+					TextCopy(filePaths[offset + i], droppedFiles.paths[i]);
+					filePathCounter++;
+				}
+			}
+
+			UnloadDroppedFiles(droppedFiles);
+
+			if (filePathCounter > 0 && filePaths[0] != NULL && oldFileBuffer == NULL)
+			{
+				oldFileBuffer = readFileToBuffer(filePaths[0], &oldFileSizeInBytes);
+			}
+
+			if (filePathCounter > 1 && filePaths[1] != NULL && newFileBuffer == NULL)
+			{
+				newFileBuffer = readFileToBuffer(filePaths[1], &newFileSizeInBytes);
+			}
+		}
+
+		if (oldFileBuffer == NULL)
+		{
+			DrawText(dragFileMessage, (WIDTH / 4) - (dragFileMessageSize.x / 2), (HEIGHT / 2) - FONT_SIZE / 2, FONT_SIZE, (Color) { .r = 255, .g = 255, .b = 255, .a = 255 });
+		}
+		else if (contentFiles == NULL)
+		{
+			DrawText(fileLoadedMessage, (WIDTH / 4) - (fileLoadedMessageSize.x / 2), (HEIGHT / 2) - FONT_SIZE / 2, FONT_SIZE, (Color) { .r = 255, .g = 255, .b = 255, .a = 255 });
+		}
+
+		if (newFileBuffer == NULL)
+		{
+			DrawText(dragFileMessage, (WIDTH - (WIDTH / 4)) - (dragFileMessageSize.x / 2), (HEIGHT / 2) - FONT_SIZE / 2, FONT_SIZE, (Color) { .r = 255, .g = 255, .b = 255, .a = 255 });
+		}
+
+		if (contentFiles != NULL)
+		{
+			renderOldFileLines(contentFiles, totalOldLinesToRender, &oldFileLinesToHighlight, &robotoMonoFont, &oldFileScrollIndex, &renderedFinalOldFileLine);
+			renderNewFileLines(contentFiles, totalNewLinesToRender, &newFileLinesToHighlight, &robotoMonoFont, &newFileScrollIndex, &renderedFinalNewFileLine);
+
+			setScrollIndexBasedOnMouseWheelMovement(&oldFileScrollIndex, &newFileScrollIndex, &renderedFinalOldFileLine, &renderedFinalNewFileLine);
+		}
+		else if (oldFileBuffer != NULL && newFileBuffer != NULL)
+		{
+			contentFiles = loadFilesIntoMemory(oldFileBuffer, newFileBuffer, oldFileSizeInBytes, newFileSizeInBytes);
+
+			findChangedLinesInOldFile(&oldFileLinesToHighlight, contentFiles);
+			findChangedLinesInNewFile(&newFileLinesToHighlight, contentFiles);
+
+			if (contentFiles != NULL)
+			{
+				totalOldLinesToRender = getNumberOfLinesThatWillBeRendered(&contentFiles->oldFileLinesList.list, &robotoMonoFont);
+				totalNewLinesToRender = getNumberOfLinesThatWillBeRendered(&contentFiles->newFileLinesList.list, &robotoMonoFont);
+			}
+		}
 
 		EndDrawing();
 	}
@@ -535,19 +620,38 @@ int main(void)
 	// cleanup
 	UnloadFont(robotoMonoFont);
 
-	for (size_t i = 0; i < contentFiles->oldFileLinesList.size; i++)
+	if (oldFileBuffer != NULL)
 	{
-		free(contentFiles->oldFileLinesList.list[i]);
+		if (filePaths[0] != NULL)
+		{
+			free(filePaths[0]);
+		}
+		free(oldFileBuffer);
 	}
 
-	for (size_t i = 0; i < contentFiles->newFileLinesList.size; i++)
+	if (newFileBuffer != NULL)
 	{
-		free(contentFiles->newFileLinesList.list[i]);
+		if (filePaths[1] != NULL)
+		{
+			free(filePaths[1]);
+		}
+		free(newFileBuffer);
 	}
 
-	free(contentFiles);
-	free(newFileBuffer);
-	free(oldFileBuffer);
+	if (contentFiles != NULL)
+	{
+		for (size_t i = 0; i < contentFiles->oldFileLinesList.size; i++)
+		{
+			free(contentFiles->oldFileLinesList.list[i]);
+		}
+
+		for (size_t i = 0; i < contentFiles->newFileLinesList.size; i++)
+		{
+			free(contentFiles->newFileLinesList.list[i]);
+		}
+
+		free(contentFiles);
+	}
 
 	CloseWindow();
 
